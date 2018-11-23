@@ -1,0 +1,19 @@
+required = ["github.com/libvirt/libvirt-go", "github.com/libvirt/libvirt-go-xml", "github.com/satori/go.uuid"]
+
+[[override]]
+  version = "4.8.0"
+  name = "github.com/libvirt/libvirt-go"
+
+[[override]]
+  version = "4.8.0"
+  name = "github.com/libvirt/libvirt-go-xml"
+
+[[override]]
+  version = "1.2.0"
+  name = "github.com/satori/go.uuid"
+
+[[override]]
+  revision = "0e37d006457bf46f9e6692014ba72ef82c33022c"
+  name = "golang.org/x/crypto"
+
+
