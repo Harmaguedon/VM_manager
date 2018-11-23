@@ -1,0 +1,24 @@
+{
+	"images" : [
+		{
+			"imagePath" : "/home/armand/Iso/debian_fai.iso",
+			"imageName" : "Debian9",
+			"imageID"   : "8c411acd-78b8-45e1-affc-795189062b8e"
+		},
+		{
+			"imagePath" : "/home/armand/Iso/CentOS-7-x86_64-DVD-1804.iso",
+			"imageName" : "Centos7",
+			"imageID"   : "1fa9ae7a-1b7f-48ff-8ced-06e884d9aabc"
+		},
+		{
+			"imagePath" : "/home/armand/Iso/ubuntu-16.04.5-desktop-amd64.iso",
+			"imageName" : "ubuntu1604",
+			"imageID"   : "9c7e752d-43da-44f2-992e-3294b2326aa4"
+		},
+		{
+			"imagePath" : "/home/armand/Iso/ubuntu-18.04.1-desktop-amd64.iso",
+			"imageName" : "ubuntu1804",
+			"imageID"   : "58390614-e8c1-442c-bbe8-5e8e7790a5aa"
+		}
+	]
+}

@@ -16,7 +16,7 @@ func main() {
 		return
 	}
 
-	image_ID := "9c7e752d-43da-44f2-992e-3294b2326aa4"
+	image_ID := "8c411acd-78b8-45e1-affc-795189062b8e"
 	template_ID := "03014bb3-9096-49a7-bf5e-0f9e440ad7c6"
 
 	hostrequest := model.HostRequest{

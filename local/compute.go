@@ -271,9 +271,7 @@ func (client *Client) CreateHost(request model.HostRequest) (*model.Host, error)
 	}
 
 	// TODO gpu is ignored
-	command := fmt.Sprintf("virt-install --name=%s_%s --vcpus=%d --memory=%d --disk size=%d --cdrom=%s  --print-xml", resourceName, image.Name, template.Cores, int(template.RAMSize*1024), template.DiskSize, imagePath)
-
-	fmt.Println(command)
+	command := fmt.Sprintf("virt-install --name=%s_%s --vcpus=%d --memory=%d --disk size=%d --cdrom=%s", resourceName, image.Name, template.Cores, int(template.RAMSize*1024), template.DiskSize, imagePath)
 
 	cmd := exec.Command("bash", "-c", command)
 	cmdOutput := &bytes.Buffer{}
@@ -282,13 +280,7 @@ func (client *Client) CreateHost(request model.HostRequest) (*model.Host, error)
 	if err != nil {
 		return nil, fmt.Errorf("command failled : ", err.Error())
 	}
-	fmt.Print(string(cmdOutput.Bytes()))
-
-	//domain, err := client.conn.DomainCreateXML(xmldescription, 0)
-	//if err != nil {
-	//	return nil, fmt.Errorf("Failed to create host : %s", err.Error())
-	//}
-
+	//fmt.Print(string(cmdOutput.Bytes()))
 	return nil, nil
 }
 
