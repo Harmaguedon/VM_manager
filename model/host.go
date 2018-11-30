@@ -17,9 +17,9 @@
 package model
 
 import (
-	"github.com/CS-SI/SafeScale/providers/model/enums/HostProperty"
-	"github.com/CS-SI/SafeScale/providers/model/enums/HostState"
-	propsv1 "github.com/CS-SI/SafeScale/providers/model/properties/v1"
+	"github.com/CS-SI/LocalDriver/model/enums/HostProperty"
+	"github.com/CS-SI/LocalDriver/model/enums/HostState"
+	propsv1 "github.com/CS-SI/LocalDriver/model/properties/v1"
 )
 
 // KeyPair represents a SSH key pair

@@ -1,4 +1,4 @@
-required = ["github.com/libvirt/libvirt-go", "github.com/libvirt/libvirt-go-xml", "github.com/satori/go.uuid"]
+required = ["github.com/libvirt/libvirt-go", "github.com/libvirt/libvirt-go-xml", "github.com/satori/go.uuid",  "github.com/minio/minio-go"]
 
 [[override]]
   version = "4.8.0"
@@ -13,7 +13,13 @@ required = ["github.com/libvirt/libvirt-go", "github.com/libvirt/libvirt-go-xml"
   name = "github.com/satori/go.uuid"
 
 [[override]]
+  version = "6.0.10"
+  name = "github.com/minio/minio-go"
+
+[[override]]
   revision = "0e37d006457bf46f9e6692014ba72ef82c33022c"
   name = "golang.org/x/crypto"
+
+
 
 

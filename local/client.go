@@ -16,39 +16,80 @@
 
 package local
 
-import(
+import (
 	"fmt"
-
-	"github.com/CS-SI/LocalDriver/model"
-	"github.com/CS-SI/LocalDriver/api"
 	"github.com/libvirt/libvirt-go"
+	"github.com/minio/minio-go"
+
+	"github.com/CS-SI/LocalDriver/api"
+	"github.com/CS-SI/LocalDriver/model"
+	"github.com/CS-SI/LocalDriver/metadata"
+	"github.com/CS-SI/LocalDriver/providers"
 )
 
 type Client struct {
-	conn *libvirt.Connect
+	LibvirtService 	*libvirt.Connect
+	MinioService 	*minio.Client
+
+	Config			*CfgOptions
+	AuthOptions		*AuthOptions
+}
+
+type AuthOptions struct {
+}
+type CfgOptions struct {
+	// MetadataBucketName contains the name of the bucket storing metadata
 	MetadataBucketName string
 }
 
 //Create and initialize a ClientAPI
 func (client *Client) Build(params map[string]interface{}) (api.ClientAPI, error){
-	clientAPI := &Client{}
-	uri, _ := params["Uri"].(string)
+	clientAPI := &Client{
+		Config: 		&CfgOptions{},
+		AuthOptions:	&AuthOptions{},
+	}
 
-	conn, err := libvirt.NewConnect(uri)
+	libvirt, err := libvirt.NewConnect(params["uri"].(string))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to libvirt : %s", err.Error())
 	}
+	clientAPI.LibvirtService = libvirt
+	fmt.Println("Libvirt Connected")
 
-	clientAPI.conn = conn
+	minio, err := minio.New(params["minioEndpoint"].(string), params["minioAccessKeyID"].(string), params["minioSecretAccessKey"].(string), params["minioUseSSL"].(bool))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to minio : %s", err.Error())
+	}
+	clientAPI.MinioService = minio
+	fmt.Println("Minio Connected")
+	if clientAPI.Config.MetadataBucketName == "" {
+		clientAPI.Config.MetadataBucketName = metadata.BuildMetadataBucketName("id")
+	}
+
+	if _, err = clientAPI.GetContainer(clientAPI.Config.MetadataBucketName); err != nil {
+		err = providers.InitializeBucket(clientAPI)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to intialize the metadata bucket : %s", err.Error())
+		}
+	}
 
 	return clientAPI, nil
 }
 
+
+
 // GetAuthOpts returns authentification options as a Config
 func (client *Client) GetAuthOpts() (model.Config, error){
-	return nil, nil
+	cfg := model.ConfigMap{}
+
+	return cfg, nil
 }
 // GetCfgOpts returns configuration options as a Config
 func (client *Client) GetCfgOpts() (model.Config, error){
-	return nil, nil
+
+	config := model.ConfigMap{}
+
+	config.Set("MetadataBucket", client.Config.MetadataBucketName)
+
+	return config, nil
 }

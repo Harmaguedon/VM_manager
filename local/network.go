@@ -16,37 +16,232 @@
 
 package local
 
-
 import (
+	"encoding/xml"
+	"fmt"
 	"github.com/CS-SI/LocalDriver/model"
+	"github.com/CS-SI/LocalDriver/model/enums/IPVersion"
+	"github.com/libvirt/libvirt-go"
+	"github.com/libvirt/libvirt-go-xml"
+	"math"
+	"net"
 )
+
+func infoFromCidr(cidr string) (string, string, string, string, error) {
+	_, IPNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", "", "","", fmt.Errorf("Failed to parse cidr : ", err.Error())
+	} else if IPNet.Mask[3] >= 63 {
+		return "", "", "","", fmt.Errorf("Please use a wider network range")
+	}
+
+	mask 		:= fmt.Sprintf("%d.%d.%d.%d", IPNet.Mask[0], IPNet.Mask[1], IPNet.Mask[2], IPNet.Mask[3])
+	dhcpStart 	:= fmt.Sprintf("%d.%d.%d.%d", IPNet.IP[0], IPNet.IP[1], IPNet.IP[2], IPNet.IP[3]+2)
+	dhcpEnd 	:= fmt.Sprintf("%d.%d.%d.%d", IPNet.IP[0]+(255-IPNet.Mask[0]), IPNet.IP[1]+(255-IPNet.Mask[1]), IPNet.IP[2]+(255-IPNet.Mask[2]), IPNet.IP[3]+(255-IPNet.Mask[3]-1))
+
+	return IPNet.IP.String(), mask, dhcpStart, dhcpEnd, nil
+}
+
+func getNetworkFromRef(ref string, libvirtService *libvirt.Connect) (*libvirt.Network, error) {
+	libvirtNetwork, err  := libvirtService.LookupNetworkByUUIDString(ref)
+	if err != nil {
+		libvirtNetwork, err  = libvirtService.LookupNetworkByName(ref)
+		if err != nil {
+			return nil, fmt.Errorf(fmt.Sprintf("Failed to fetch network from ref : %s", err.Error()))
+		}
+	}
+
+	return libvirtNetwork, nil
+}
+
+func getNetworkFromLibvirtNetwork(libvirtNetwork *libvirt.Network) (*model.Network, error) {
+	libvirtNetworkXML, err := libvirtNetwork.GetXMLDesc(0)
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Failed get network's xml description  : %s", err.Error()))
+	}
+	networkDescription := &libvirtxml.Network{}
+	err = xml.Unmarshal([]byte(libvirtNetworkXML), networkDescription)
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Failed get Unmarshal networks's xml description  : %s", err.Error()))
+	}
+
+
+	var ipVersion IPVersion.Enum
+	if networkDescription.IPv6 == "" {
+		ipVersion = IPVersion.IPv4
+	} else {
+		ipVersion = IPVersion.IPv6
+	}
+
+	cidr := ""
+	if ipVersion == IPVersion.IPv4 {
+		netmask := net.ParseIP(networkDescription.IPs[0].Netmask)
+		netmaskInt := 0
+		for i:=0; i < 4 ; i++ {
+			netmaskInt += int(math.Log2(float64(netmask[i])))
+		}
+		cidr = fmt.Sprintf("%s/%d", networkDescription.IPs[0].Address, netmaskInt)
+	} else {
+		cidr = networkDescription.IPv6
+	}
+
+
+	network := model.NewNetwork()
+	network.ID = networkDescription.UUID
+	network.Name = networkDescription.Name
+	network.CIDR = cidr
+	network.IPVersion = ipVersion
+	//network.GatewayID
+	//network.Properties
+
+	return network, nil
+}
 
 // CreateNetwork creates a network named name
 func (client *Client) CreateNetwork(req model.NetworkRequest) (*model.Network, error) {
-	return nil, nil
+	name := 	 req.Name
+	ipVersion := req.IPVersion
+	cidr :=		 req.CIDR
+	dns := 		 req.DNSServers
+
+	//TODO check what permanant/autostart means
+
+	if ipVersion != IPVersion.IPv4 {
+		// TODO implement IPV6 networks
+		panic("only ipv4 networks are implemented")
+	}
+	if len(dns) != 0 {
+		// TODO implement DNS for networks
+		panic("DNS not implemented yet in networks creation")
+	}
+
+	libvirtNetwork, err := getNetworkFromRef(name, client.LibvirtService)
+	if libvirtNetwork != nil {
+		return nil, fmt.Errorf("Network %s already exists !", name)
+	}
+
+	ip, netmask, dhcpStart, dhcpEnd, err := infoFromCidr(cidr)
+	if err != nil {
+		return nil, err
+	}
+
+	requestXML := `
+	<network>
+		<name>`+name+`</name>
+		<forward mode="nat" />
+		<ip address="`+ip+`" netmask="`+netmask+`">
+			<dhcp> 
+				<range start="`+dhcpStart+`" end="`+dhcpEnd+`" />
+			</dhcp>
+		</ip>
+	</network>`
+
+	libvirtNetwork, err = client.LibvirtService.NetworkCreateXML(requestXML)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create network : ", err.Error())
+	}
+
+	network, err := getNetworkFromLibvirtNetwork(libvirtNetwork)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to convert a libvirt network into a network : ", err.Error())
+	}
+
+	return network, nil
 }
 
 // GetNetwork returns the network identified by ref (id or name)
 func (client *Client) GetNetwork(ref string) (*model.Network, error) {
-	return nil, nil
+	libvirtNetwork, err := getNetworkFromRef(ref, client.LibvirtService)
+	if err !=  nil {
+		return nil, err
+	}
+
+	network, err := getNetworkFromLibvirtNetwork(libvirtNetwork)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to convert a libvirt network into a network : ", err.Error())
+	}
+
+	return network, nil
+}
+
+// GetNetwork returns the network identified by ref (id or name)
+func (client *Client) GetNetworkByName(ref string) (*model.Network, error) {
+	return client.GetNetwork(ref)
 }
 
 // ListNetworks lists available networks
-func (client *Client) ListNetworks(all bool) ([]*model.Network, error) {
-	return nil, nil
+func (client *Client) ListNetworks() ([]*model.Network, error) {
+	var networks []*model.Network
+
+	libvirtNetworks, err := client.LibvirtService.ListAllNetworks(3)
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("Error listing networks : %s", err.Error()))
+	}
+	for _, libvirtNetwork := range libvirtNetworks {
+		network, err := getNetworkFromLibvirtNetwork(&libvirtNetwork)
+		if err != nil {
+			return nil, fmt.Errorf(fmt.Sprintf("Failed to get network from libvirtNetwork : %s", err.Error()))
+		}
+
+		networks = append(networks, network)
+	}
+
+	return networks, nil
 }
 
 // DeleteNetwork deletes the network identified by id
-func (client *Client) DeleteNetwork(networkRef string) error {
+func (client *Client) DeleteNetwork(ref string) error {
+	libvirtNetwork, err := getNetworkFromRef(ref, client.LibvirtService)
+	if err !=  nil {
+		return err
+	}
+
+	err = libvirtNetwork.Destroy()
+	if err != nil {
+		return fmt.Errorf("Failed to destroy network : ", err.Error())
+	}
+
 	return nil
 }
 
 // CreateGateway creates a public Gateway for a private network
 func (client *Client) CreateGateway(req model.GWRequest) (*model.Host, error) {
-	return nil, nil
+	networkID	:= req.NetworkID
+	templateID	:= req.TemplateID
+	imageID 	:= req.ImageID
+	keyPair 	:= req.KeyPair
+	gwName 		:= req.GWName
+
+	networkLibvirt, err := getNetworkFromRef(networkID, client.LibvirtService)
+	if err != nil {
+		return nil, err
+	}
+	if gwName == "" {
+		name, err := networkLibvirt.GetName()
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get network name : ", err.Error())
+		}
+		gwName = "gw-" + name
+	}
+
+	hostReq := model.HostRequest{
+		ImageID:      imageID,
+		KeyPair:      keyPair,
+		ResourceName: gwName,
+		TemplateID:   templateID,
+		NetworkIDs:   []string{networkID},
+		PublicIP:     true,
+	}
+
+	host, err := client.CreateHost(hostReq)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create geateway host : ", err.Error())
+	}
+
+	return host, nil
 }
 
-// DeleteGateway delete the public gateway of a private network
-func (client *Client) DeleteGateway(networkID string) error {
-	return nil
+// DeleteGateway delete the public gateway referenced by ref (id or name)
+func (client *Client) DeleteGateway(ref string) error {
+	return client.DeleteHost(ref)
 }

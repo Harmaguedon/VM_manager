@@ -17,7 +17,7 @@
 package model
 
 import (
-	"github.com/CS-SI/SafeScale/providers/model/enums/IPVersion"
+	"github.com/CS-SI/LocalDriver/model/enums/IPVersion"
 )
 
 // GWRequest to create a Gateway into a network
@@ -63,7 +63,7 @@ type NetworkRequest struct {
 
 // Network representes a virtual network
 type Network struct {
-	ID        string `json:"id,omitempty"`         // ID for the network (from provider)
+	ID        string `json:"id,omitempty"`         // ID for the network (from providers)
 	Name      string `json:"name,omitempty"`       // Name of the network
 	CIDR      string `json:"mask,omitempty"`       // network in CIDR notation
 	GatewayID string `json:"gateway_id,omitempty"` // contains the id of the host acting as gateway for the network

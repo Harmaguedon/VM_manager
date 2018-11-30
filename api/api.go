@@ -18,11 +18,15 @@ package api
 
 import(
 	"github.com/CS-SI/LocalDriver/model"
+	"github.com/CS-SI/LocalDriver/model/enums/HostState"
 )
 
 // ClientAPI is an API defining an IaaS driver
 type ClientAPI interface {
 	Build(map[string]interface{}) (ClientAPI, error)
+
+	//ListAvailabilityZones lists the usable Availability Zones
+	ListAvailabilityZones(bool) (map[string]bool, error)
 
 	// ListImages lists available OS images
 	ListImages(all bool) ([]model.Image, error)
@@ -44,37 +48,39 @@ type ClientAPI interface {
 	// DeleteKeyPair deletes the key pair identified by id
 	DeleteKeyPair(id string) error
 
-	//// CreateNetwork creates a network named name
-	//CreateNetwork(req model.NetworkRequest) (*model.Network, error)
-	//// GetNetwork returns the network identified by ref (id or name)
-	//GetNetwork(ref string) (*model.Network, error)
-	//// ListNetworks lists available networks
-	//ListNetworks(all bool) ([]*model.Network, error)
-	//// DeleteNetwork deletes the network identified by id
-	//DeleteNetwork(id string) error
-	//// CreateGateway creates a public Gateway for a private network
-	//CreateGateway(req model.GWRequest) (*model.Host, error)
-	//// DeleteGateway delete the public gateway of a private network
-	//DeleteGateway(networkID string) error
+	// CreateNetwork creates a network named name
+	CreateNetwork(req model.NetworkRequest) (*model.Network, error)
+	// GetNetwork returns the network identified by id
+	GetNetwork(id string) (*model.Network, error)
+	// GetNetworkByName returns the network identified by name)
+	GetNetworkByName(name string) (*model.Network, error)
+	// ListNetworks lists all networks
+	ListNetworks() ([]*model.Network, error)
+	// DeleteNetwork deletes the network identified by id
+	DeleteNetwork(id string) error
+	// CreateGateway creates a public Gateway for a private network
+	CreateGateway(req model.GWRequest) (*model.Host, error)
+	// DeleteGateway ...
+	DeleteGateway(id string) error
 
 	// CreateHost creates an host that fulfils the request
 	CreateHost(request model.HostRequest) (*model.Host, error)
-	//// GetHost returns the host identified by id
-	//UpdateHost(host *model.Host) error
-	//// GetHostState returns the current state of the host identified by id
-	//GetHostState(hostParam interface{}) (HostState.Enum, error)
-	//// ListHosts lists available hosts
-	//ListHosts(all bool) ([]*model.Host, error)
-	//// DeleteHost deletes the host identified by id
-	//DeleteHost(id string) error
-	//// StopHost stops the host identified by id
-	//StopHost(id string) error
-	//// StartHost starts the host identified by id
-	//StartHost(id string) error
-	//// GetSSHConfig creates SSHConfig from host
-	////GetSSHConfig(param interface{}) (*system.SSHConfig, error)
-	//// Reboot host
-	//RebootHost(id string) error
+	// GetHost returns the host identified by id or updates content of a *model.Host
+	GetHost(interface{}) (*model.Host, error)
+	// GetHostByName returns the host identified by name
+	GetHostByName(string) (*model.Host, error)
+	// DeleteHost deletes the host identified by id
+	DeleteHost(id string) error
+	// ListHosts lists available hosts
+	ListHosts() ([]*model.Host, error)
+	// StopHost stops the host identified by id
+	StopHost(id string) error
+	// StartHost starts the host identified by id
+	StartHost(id string) error
+	// Reboot host
+	RebootHost(id string) error
+	// GetHostState returns the current state of the host identified by id
+	GetHostState(hostParam interface{}) (HostState.Enum, error)
 
 	//// CreateVolume creates a block volume
 	//// - name is the name of the volume
@@ -87,7 +93,7 @@ type ClientAPI interface {
 	//ListVolumes(all bool) ([]model.Volume, error)
 	//// DeleteVolume deletes the volume identified by id
 	//DeleteVolume(id string) error
-	//
+
 	//// CreateVolumeAttachment attaches a volume to an host
 	////- name of the volume attachment
 	////- volume to attach
@@ -99,33 +105,33 @@ type ClientAPI interface {
 	//ListVolumeAttachments(serverID string) ([]model.VolumeAttachment, error)
 	//// DeleteVolumeAttachment deletes the volume attachment identifed by id
 	//DeleteVolumeAttachment(serverID, id string) error
-	//
-	//// CreateContainer creates an object container
-	//CreateContainer(name string) error
+
+	// CreateContainer creates an object container
+	CreateContainer(name string) error
 	//// DeleteContainer deletes an object container
-	//DeleteContainer(name string) error
+	DeleteContainer(name string) error
 	//// ListContainers list object containers
-	//ListContainers() ([]string, error)
-	//// Getcontainer returns info of the container
-	//GetContainer(name string) (*model.ContainerInfo, error)
-	//
-	//// PutObject put an object into an object container
-	//PutObject(container string, obj model.Object) error
-	//// UpdateObjectMetadata update an object into  object container
-	//UpdateObjectMetadata(container string, obj model.Object) error
-	//// GetObject get  object content from an object container
-	//GetObject(container string, name string, ranges []model.Range) (*model.Object, error)
-	//// GetObjectMetadata get  object metadata from an object container
-	//GetObjectMetadata(container string, name string) (*model.Object, error)
-	//// ListObjects list objects of a container
-	//ListObjects(container string, filter model.ObjectFilter) ([]string, error)
-	//// CopyObject copies an object
-	//CopyObject(containerSrc, objectSrc, objectDst string) error
-	//// DeleteObject delete an object from a container
-	//DeleteObject(container, object string) error
-	//
+	ListContainers() ([]string, error)
+	// Getcontainer returns info of the container
+	GetContainer(name string) (*model.ContainerInfo, error)
+
+	// PutObject put an object into an object container
+	PutObject(container string, obj model.Object) error
+	// UpdateObjectMetadata update an object into  object container
+	UpdateObjectMetadata(container string, obj model.Object) error
+	// GetObject get  object content from an object container
+	GetObject(container string, name string, ranges []model.Range) (*model.Object, error)
+	// GetObjectMetadata get  object metadata from an object container
+	GetObjectMetadata(container string, name string) (*model.Object, error)
+	// ListObjects list objects of a container
+	ListObjects(container string, filter model.ObjectFilter) ([]string, error)
+	// CopyObject copies an object
+	CopyObject(containerSrc, objectSrc, objectDst string) error
+	// DeleteObject delete an object from a container
+	DeleteObject(container, object string) error
+
 	//// GetAuthOpts returns authentification options as a Config
-	//GetAuthOpts() (model.Config, error)
-	//// GetCfgOpts returns configuration options as a Config
-	//GetCfgOpts() (model.Config, error)
+	GetAuthOpts() (model.Config, error)
+	// GetCfgOpts returns configuration options as a Config
+	GetCfgOpts() (model.Config, error)
 }
