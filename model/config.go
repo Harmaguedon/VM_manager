@@ -16,7 +16,7 @@
 
 package model
 
-//go:generate mockgen -destination=../mocks/mock_config.go -package=mocks github.com/CS-SI/SafeScale/providers/model Config
+//go:generate mockgen -destination=../mocks/mock_config.go -package=mocks github.com/CS-SI/LocalDriver/model Config
 
 // Config represents key/value configuration.
 type Config interface {
