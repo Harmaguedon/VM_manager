@@ -71,8 +71,8 @@ func main() {
 	// app.Commands = append(app.Commands, cmd.ShareCmd)
 	// sort.Sort(cli.CommandsByName(cmd.ShareCmd.Subcommands))
 
-	app.Commands = append(app.Commands, cliL.ImageCmd)
-	sort.Sort(cli.CommandsByName(cliL.ImageCmd.Subcommands))
+	//app.Commands = append(app.Commands, cliL.ImageCmd)
+	//sort.Sort(cli.CommandsByName(cliL.ImageCmd.Subcommands))
 
 	// useless
 	// app.Commands = append(app.Commands, cliL.TemplateCmd)
