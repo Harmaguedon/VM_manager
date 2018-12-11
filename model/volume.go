@@ -17,8 +17,8 @@
 package model
 
 import (
-	"github.com/CS-SI/SafeScale/providers/model/enums/VolumeSpeed"
-	"github.com/CS-SI/SafeScale/providers/model/enums/VolumeState"
+	"github.com/CS-SI/LocalDriver/model/enums/VolumeSpeed"
+	"github.com/CS-SI/LocalDriver/model/enums/VolumeState"
 )
 
 // VolumeRequest represents a volume request

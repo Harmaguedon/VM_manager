@@ -18,35 +18,47 @@ package local
 
 import (
 	"fmt"
-	"github.com/libvirt/libvirt-go"
-	"github.com/minio/minio-go"
+
+	libvirt "github.com/libvirt/libvirt-go"
+	minio "github.com/minio/minio-go"
 
 	"github.com/CS-SI/LocalDriver/api"
-	"github.com/CS-SI/LocalDriver/model"
 	"github.com/CS-SI/LocalDriver/metadata"
+	"github.com/CS-SI/LocalDriver/model"
 	"github.com/CS-SI/LocalDriver/providers"
 )
 
 type Client struct {
-	LibvirtService 	*libvirt.Connect
-	MinioService 	*minio.Client
+	LibvirtService *libvirt.Connect
+	MinioService   *minio.Client
 
-	Config			*CfgOptions
-	AuthOptions		*AuthOptions
+	Config      *CfgOptions
+	AuthOptions *AuthOptions
 }
 
 type AuthOptions struct {
 }
 type CfgOptions struct {
 	// MetadataBucketName contains the name of the bucket storing metadata
-	MetadataBucketName string
+	MetadataBucketName        string
+	ProviderNetwork           string
+	LanInterface              string
+	AutoHostNetworkInterfaces bool
+	UseLayer3Networking       bool
 }
 
 //Create and initialize a ClientAPI
-func (client *Client) Build(params map[string]interface{}) (api.ClientAPI, error){
+//Tennant : uri string
+//		  :
+//        : (and minio... if storage object)
+func (client *Client) Build(params map[string]interface{}) (api.ClientAPI, error) {
 	clientAPI := &Client{
-		Config: 		&CfgOptions{},
-		AuthOptions:	&AuthOptions{},
+		Config: &CfgOptions{
+			ProviderNetwork:           "default", //At least for KVM
+			AutoHostNetworkInterfaces: false,
+			UseLayer3Networking:       false,
+		},
+		AuthOptions: &AuthOptions{},
 	}
 
 	libvirt, err := libvirt.NewConnect(params["uri"].(string))
@@ -54,14 +66,13 @@ func (client *Client) Build(params map[string]interface{}) (api.ClientAPI, error
 		return nil, fmt.Errorf("Failed to connect to libvirt : %s", err.Error())
 	}
 	clientAPI.LibvirtService = libvirt
-	fmt.Println("Libvirt Connected")
 
 	minio, err := minio.New(params["minioEndpoint"].(string), params["minioAccessKeyID"].(string), params["minioSecretAccessKey"].(string), params["minioUseSSL"].(bool))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to minio : %s", err.Error())
 	}
 	clientAPI.MinioService = minio
-	fmt.Println("Minio Connected")
+
 	if clientAPI.Config.MetadataBucketName == "" {
 		clientAPI.Config.MetadataBucketName = metadata.BuildMetadataBucketName("id")
 	}
@@ -73,23 +84,26 @@ func (client *Client) Build(params map[string]interface{}) (api.ClientAPI, error
 		}
 	}
 
+	clientAPI.Config.LanInterface = params["lanInterface"].(string)
+
 	return clientAPI, nil
 }
 
-
-
 // GetAuthOpts returns authentification options as a Config
-func (client *Client) GetAuthOpts() (model.Config, error){
+func (client *Client) GetAuthOpts() (model.Config, error) {
 	cfg := model.ConfigMap{}
 
 	return cfg, nil
 }
-// GetCfgOpts returns configuration options as a Config
-func (client *Client) GetCfgOpts() (model.Config, error){
 
+// GetCfgOpts returns configuration options as a Config
+func (client *Client) GetCfgOpts() (model.Config, error) {
 	config := model.ConfigMap{}
 
+	config.Set("AutoHostNetworkInterfaces", client.Config.AutoHostNetworkInterfaces)
+	config.Set("UseLayer3Networking", client.Config.UseLayer3Networking)
 	config.Set("MetadataBucket", client.Config.MetadataBucketName)
+	config.Set("ProviderNetwork", client.Config.ProviderNetwork)
 
 	return config, nil
 }

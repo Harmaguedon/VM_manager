@@ -19,33 +19,36 @@ package local
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/CS-SI/LocalDriver/model"
-	"github.com/CS-SI/LocalDriver/model/enums/IPVersion"
-	"github.com/libvirt/libvirt-go"
-	"github.com/libvirt/libvirt-go-xml"
 	"math"
 	"net"
+	"strconv"
+	"strings"
+
+	"github.com/CS-SI/LocalDriver/model"
+	"github.com/CS-SI/LocalDriver/model/enums/IPVersion"
+	libvirt "github.com/libvirt/libvirt-go"
+	libvirtxml "github.com/libvirt/libvirt-go-xml"
 )
 
 func infoFromCidr(cidr string) (string, string, string, string, error) {
 	_, IPNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return "", "", "","", fmt.Errorf("Failed to parse cidr : ", err.Error())
+		return "", "", "", "", fmt.Errorf("Failed to parse cidr : ", err.Error())
 	} else if IPNet.Mask[3] >= 63 {
-		return "", "", "","", fmt.Errorf("Please use a wider network range")
+		return "", "", "", "", fmt.Errorf("Please use a wider network range")
 	}
 
-	mask 		:= fmt.Sprintf("%d.%d.%d.%d", IPNet.Mask[0], IPNet.Mask[1], IPNet.Mask[2], IPNet.Mask[3])
-	dhcpStart 	:= fmt.Sprintf("%d.%d.%d.%d", IPNet.IP[0], IPNet.IP[1], IPNet.IP[2], IPNet.IP[3]+2)
-	dhcpEnd 	:= fmt.Sprintf("%d.%d.%d.%d", IPNet.IP[0]+(255-IPNet.Mask[0]), IPNet.IP[1]+(255-IPNet.Mask[1]), IPNet.IP[2]+(255-IPNet.Mask[2]), IPNet.IP[3]+(255-IPNet.Mask[3]-1))
+	mask := fmt.Sprintf("%d.%d.%d.%d", IPNet.Mask[0], IPNet.Mask[1], IPNet.Mask[2], IPNet.Mask[3])
+	dhcpStart := fmt.Sprintf("%d.%d.%d.%d", IPNet.IP[0], IPNet.IP[1], IPNet.IP[2], IPNet.IP[3]+2)
+	dhcpEnd := fmt.Sprintf("%d.%d.%d.%d", IPNet.IP[0]+(255-IPNet.Mask[0]), IPNet.IP[1]+(255-IPNet.Mask[1]), IPNet.IP[2]+(255-IPNet.Mask[2]), IPNet.IP[3]+(255-IPNet.Mask[3]-1))
 
 	return IPNet.IP.String(), mask, dhcpStart, dhcpEnd, nil
 }
 
 func getNetworkFromRef(ref string, libvirtService *libvirt.Connect) (*libvirt.Network, error) {
-	libvirtNetwork, err  := libvirtService.LookupNetworkByUUIDString(ref)
+	libvirtNetwork, err := libvirtService.LookupNetworkByUUIDString(ref)
 	if err != nil {
-		libvirtNetwork, err  = libvirtService.LookupNetworkByName(ref)
+		libvirtNetwork, err = libvirtService.LookupNetworkByName(ref)
 		if err != nil {
 			return nil, fmt.Errorf(fmt.Sprintf("Failed to fetch network from ref : %s", err.Error()))
 		}
@@ -65,7 +68,6 @@ func getNetworkFromLibvirtNetwork(libvirtNetwork *libvirt.Network) (*model.Netwo
 		return nil, fmt.Errorf(fmt.Sprintf("Failed get Unmarshal networks's xml description  : %s", err.Error()))
 	}
 
-
 	var ipVersion IPVersion.Enum
 	if networkDescription.IPv6 == "" {
 		ipVersion = IPVersion.IPv4
@@ -75,16 +77,21 @@ func getNetworkFromLibvirtNetwork(libvirtNetwork *libvirt.Network) (*model.Netwo
 
 	cidr := ""
 	if ipVersion == IPVersion.IPv4 {
-		netmask := net.ParseIP(networkDescription.IPs[0].Netmask)
+		netmaskBloc := strings.Split(networkDescription.IPs[0].Netmask, ".")
 		netmaskInt := 0
-		for i:=0; i < 4 ; i++ {
-			netmaskInt += int(math.Log2(float64(netmask[i])))
+		for i := 0; i < 4; i++ {
+			value, err := strconv.Atoi(netmaskBloc[i])
+			if err != nil {
+				return nil, fmt.Errorf("Failed to convert x.x.x.x nemask to [0-32] netmask")
+			}
+			if value != 0 {
+				netmaskInt += int(math.Log2(float64(value)) + 1)
+			}
 		}
 		cidr = fmt.Sprintf("%s/%d", networkDescription.IPs[0].Address, netmaskInt)
 	} else {
 		cidr = networkDescription.IPv6
 	}
-
 
 	network := model.NewNetwork()
 	network.ID = networkDescription.UUID
@@ -99,10 +106,10 @@ func getNetworkFromLibvirtNetwork(libvirtNetwork *libvirt.Network) (*model.Netwo
 
 // CreateNetwork creates a network named name
 func (client *Client) CreateNetwork(req model.NetworkRequest) (*model.Network, error) {
-	name := 	 req.Name
+	name := req.Name
 	ipVersion := req.IPVersion
-	cidr :=		 req.CIDR
-	dns := 		 req.DNSServers
+	cidr := req.CIDR
+	dns := req.DNSServers
 
 	//TODO check what permanant/autostart means
 
@@ -127,11 +134,10 @@ func (client *Client) CreateNetwork(req model.NetworkRequest) (*model.Network, e
 
 	requestXML := `
 	<network>
-		<name>`+name+`</name>
-		<forward mode="nat" />
-		<ip address="`+ip+`" netmask="`+netmask+`">
+		<name>` + name + `</name>
+		<ip address="` + ip + `" netmask="` + netmask + `">
 			<dhcp> 
-				<range start="`+dhcpStart+`" end="`+dhcpEnd+`" />
+				<range start="` + dhcpStart + `" end="` + dhcpEnd + `" />
 			</dhcp>
 		</ip>
 	</network>`
@@ -152,7 +158,7 @@ func (client *Client) CreateNetwork(req model.NetworkRequest) (*model.Network, e
 // GetNetwork returns the network identified by ref (id or name)
 func (client *Client) GetNetwork(ref string) (*model.Network, error) {
 	libvirtNetwork, err := getNetworkFromRef(ref, client.LibvirtService)
-	if err !=  nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -192,7 +198,7 @@ func (client *Client) ListNetworks() ([]*model.Network, error) {
 // DeleteNetwork deletes the network identified by id
 func (client *Client) DeleteNetwork(ref string) error {
 	libvirtNetwork, err := getNetworkFromRef(ref, client.LibvirtService)
-	if err !=  nil {
+	if err != nil {
 		return err
 	}
 
@@ -205,14 +211,14 @@ func (client *Client) DeleteNetwork(ref string) error {
 }
 
 // CreateGateway creates a public Gateway for a private network
-func (client *Client) CreateGateway(req model.GWRequest) (*model.Host, error) {
-	networkID	:= req.NetworkID
-	templateID	:= req.TemplateID
-	imageID 	:= req.ImageID
-	keyPair 	:= req.KeyPair
-	gwName 		:= req.GWName
+func (client *Client) CreateGateway(req model.GatewayRequest) (*model.Host, error) {
+	network := req.Network
+	templateID := req.TemplateID
+	imageID := req.ImageID
+	keyPair := req.KeyPair
+	gwName := req.Name
 
-	networkLibvirt, err := getNetworkFromRef(networkID, client.LibvirtService)
+	networkLibvirt, err := getNetworkFromRef(network.ID, client.LibvirtService)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +235,7 @@ func (client *Client) CreateGateway(req model.GWRequest) (*model.Host, error) {
 		KeyPair:      keyPair,
 		ResourceName: gwName,
 		TemplateID:   templateID,
-		NetworkIDs:   []string{networkID},
+		Networks:     []*model.Network{network},
 		PublicIP:     true,
 	}
 

@@ -24,9 +24,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/CS-SI/SafeScale/providers/api"
-	"github.com/CS-SI/SafeScale/providers/model"
-	"github.com/CS-SI/SafeScale/utils"
+	"github.com/CS-SI/LocalDriver/api"
+	"github.com/CS-SI/LocalDriver/model"
 	rice "github.com/GeertJohan/go.rice"
 )
 
@@ -55,6 +54,7 @@ type userData struct {
 	Password string
 	// HostName contains the name wanted as host name (default == name of the Cloud resource)
 	HostName string
+	PublicIp string
 }
 
 var userdataTemplate *template.Template
@@ -78,13 +78,12 @@ func Prepare(
 	if true {
 		gpacPassword = "SafeScale"
 	} else {
-		gpacPassword, err = utils.GeneratePassword(16)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate password: %s", err.Error())
-		}
+		gpacPassword = "Password"
+
 	}
 
 	// Determine Gateway IP
+
 	ip := ""
 	if request.DefaultGateway != nil {
 		ip = request.DefaultGateway.GetPrivateIP()
@@ -135,6 +134,7 @@ func Prepare(
 		CIDR:       cidr,
 		GatewayIP:  ip,
 		Password:   gpacPassword,
+		PublicIp:   "172.26.128",
 
 		//HostName:   request.Name,
 	}

@@ -20,6 +20,10 @@ required = ["github.com/libvirt/libvirt-go", "github.com/libvirt/libvirt-go-xml"
   revision = "0e37d006457bf46f9e6692014ba72ef82c33022c"
   name = "golang.org/x/crypto"
 
+[[override]]
+  version = "=v1.20.0"
+  name = "github.com/urfave/cli"
+
 
 
 

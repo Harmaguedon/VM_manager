@@ -48,7 +48,7 @@ func (client *Client) DeleteContainer(name string) error {
 }
 
 // Getcontainer returns info of the container
-func (client *Client) GetContainer(name string) (*model.ContainerInfo, error){
+func (client *Client) GetContainer(name string) (*model.Bucket, error){
 	exists, err := client.MinioService.BucketExists(name)
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Not Able to check the existance the container %s : %s", name, err.Error()))
@@ -60,18 +60,18 @@ func (client *Client) GetContainer(name string) (*model.ContainerInfo, error){
 	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Not Able to find the location of the container %s : %s", name, err.Error()))
 	}
-	objectsNumber := 0
-	doneCh := make(chan struct{})
-	defer close(doneCh)
-	for range client.MinioService.ListObjects(name, "", true, doneCh){
-		objectsNumber ++
-	}
+	//objectsNumber := 0
+	//doneCh := make(chan struct{})
+	//defer close(doneCh)
+	//for range client.MinioService.ListObjects(name, "", true, doneCh){
+	//	objectsNumber ++
+	//}
 
-	return &model.ContainerInfo{
+	return &model.Bucket{
 		Name:		name,
 		Host:		"Not implemented yet",
 		MountPoint:	location,
-		NbItems:	objectsNumber,
+		//NbItems:	objectsNumber,
 	}, nil
 }
 
@@ -119,7 +119,8 @@ func objectExists(containerName string, objectName string, minioService *minio.C
 func (client *Client) PutObject(container string, obj model.Object) error {
 	putOpts := minio.PutObjectOptions{
 		ContentType: 	obj.ContentType,
-		UserMetadata:	obj.Metadata,
+		// TODO
+		//UserMetadata:	obj.Metadata,
 	}
 	var objSize int64 = -1
 	if obj.ContentLength != 0 {
@@ -194,7 +195,7 @@ func (client *Client) GetObject(container string, name string, ranges []model.Ra
 	return &model.Object{
 		Name:         name,
 		Content:      bytes.NewReader(buffer),
-		Metadata:     metadataNew,
+		// TODO Metadata:     metadataNew,
 		LastModified: info.LastModified,
 		ContentType:  info.ContentType,
 		ContentLength:info.Size,
@@ -280,7 +281,7 @@ func (client *Client) GetObjectMetadata(container string, name string) (*model.O
 
 	return &model.Object{
 		Name:         name,
-		Metadata:     metadataNew,
+		//TODO Metadata:     metadataNew,
 		LastModified: info.LastModified,
 		ContentType:  info.ContentType,
 		ContentLength:info.Size,
@@ -294,7 +295,7 @@ func (client *Client) UpdateObjectMetadata(container string, obj model.Object) e
 		return fmt.Errorf(fmt.Sprintf("Failed to GET the object %s of the container %s : %s", obj.Name, container, err.Error()))
 	}
 
-	objectOld.Metadata = obj.Metadata
+	//TODO objectOld.Metadata = obj.Metadata
 
 	err = client.PutObject(container, *objectOld)
 	if err != nil {

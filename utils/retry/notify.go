@@ -19,7 +19,7 @@ package retry
 import (
 	"log"
 
-	"github.com/CS-SI/SafeScale/utils/retry/Verdict"
+	"github.com/CS-SI/LocalDriver/utils/retry/Verdict"
 )
 
 // Notify ...

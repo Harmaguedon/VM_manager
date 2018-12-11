@@ -51,14 +51,20 @@ type StoredCPUInfo struct {
 	NumberOfCPU    int     `json:"number_of_cpu,omitempty"`
 	NumberOfCore   int     `json:"number_of_core,omitempty"`
 	NumberOfSocket int     `json:"number_of_socket,omitempty"`
-	CPUFrequency   float64 `json:"cpu_frequency,omitempty"`
+	CPUFrequency   float64 `json:"cpu_frequency_Ghz,omitempty"`
 	CPUArch        string  `json:"cpu_arch,omitempty"`
 	Hypervisor     string  `json:"hypervisor,omitempty"`
 	CPUModel       string  `json:"cpu_model,omitempty"`
-	RAMSize        float64 `json:"ram_size,omitempty"`
+	RAMSize        float64 `json:"ram_size_Gb,omitempty"`
 	RAMFreq        float64 `json:"ram_freq,omitempty"`
 	GPU            int     `json:"gpu,omitempty"`
 	GPUModel       string  `json:"gpu_model,omitempty"`
+	DiskSize       int64   `json:"disk_size_Gb,omitempty"`
+	MainDiskType   string  `json:"main_disk_type"`
+	MainDiskSpeed  float64 `json:"main_disk_speed_MBps"`
+	SampleNetSpeed float64 `json:"sample_net_speed_KBps"`
+	EphDiskSize    int64   `json:"eph_disk_size_Gb"`
+	PricePerHour   float64 `json:"price_in_dollars_hour"`
 }
 
 // Image representes an OS image
@@ -70,19 +76,21 @@ type Image struct {
 // HostRequest represents requirements to create host
 type HostRequest struct {
 	// ResourceName contains the name of the compute resource
-	ResourceName string `json:"resource_name,omitempty"`
+	ResourceName string
 	// HostName contains the hostname on the system (if empty, will use ResourceName)
-	HostName string `json:"host_name,omitempty"`
-	// NetworksIDs lists the network IDs the host must be connected to
-	NetworkIDs []string `json:"network_ids,omitempty"`
+	HostName string
+	// Networks lists the networks the host must be connected to
+	Networks []*Network
+	// DefaultGateway is the host used as default gateway
+	DefaultGateway *Host
 	// PublicIP a flag telling if the host must have a public IP
-	PublicIP bool `json:"public_ip,omitempty"`
+	PublicIP bool
 	// TemplateID is the UUID of the template used to size the host (see SelectTemplates)
-	TemplateID string `json:"template_id,omitempty"`
+	TemplateID string
 	// ImageID is the UUID of the image that contains the server's OS and initial state.
-	ImageID string `json:"image_id,omitempty"`
+	ImageID string
 	// KeyPair is the (optional) specific KeyPair to use (if not provided, a new KeyPair will be generated)
-	KeyPair *KeyPair `json:"key_pair,omitempty"`
+	KeyPair *KeyPair
 }
 
 // HostSize ...

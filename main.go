@@ -1,75 +1,86 @@
+/*
+ * Copyright 2018, CS Systemes d'Information, http://www.c-s.fr
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package main
 
 import (
 	"fmt"
-	"github.com/CS-SI/LocalDriver/local"
-	"github.com/CS-SI/LocalDriver/model"
-	"github.com/CS-SI/LocalDriver/model/enums/IPVersion"
+	"os"
+	"sort"
+
+	cliL "github.com/CS-SI/LocalDriver/cli"
+	cli "github.com/urfave/cli"
 )
 
 func main() {
-	tenant := make(map[string]interface{})
-	tenant["uri"] = "qemu:///system"
-	tenant["minioEndpoint"] ="localhost:9000"
-	tenant["minioAccessKeyID"] = "accesKey"
-	tenant["minioSecretAccessKey"] = "secretKey"
-	tenant["minioUseSSL"] = false
 
-	local, err := (&local.Client{}).Build(tenant)
+	app := cli.NewApp()
+	app.Name = "virt"
+	app.Usage = "virt COMMAND"
+	app.Authors = []cli.Author{
+		cli.Author{
+			Name:  "CS-SI",
+			Email: "safescale@c-s.fr",
+		},
+	}
+
+	app.EnableBashCompletion = true
+
+	cli.VersionFlag = cli.BoolFlag{
+		Name:  "version, V",
+		Usage: "Print program version",
+	}
+
+	app.Flags = []cli.Flag{}
+
+	app.Before = func(c *cli.Context) error {
+		return nil
+	}
+
+	app.Commands = append(app.Commands, cliL.HostCmd)
+	sort.Sort(cli.CommandsByName(cliL.HostCmd.Subcommands))
+
+	app.Commands = append(app.Commands, cliL.NetworkCmd)
+	sort.Sort(cli.CommandsByName(cliL.NetworkCmd.Subcommands))
+
+	// app.Commands = append(app.Commands, cmd.TenantCmd)
+	// sort.Sort(cli.CommandsByName(cmd.TenantCmd.Subcommands))
+
+	app.Commands = append(app.Commands, cliL.VolumeCmd)
+	sort.Sort(cli.CommandsByName(cliL.VolumeCmd.Subcommands))
+
+	app.Commands = append(app.Commands, cliL.SSHCmd)
+	sort.Sort(cli.CommandsByName(cliL.SSHCmd.Subcommands))
+
+	// app.Commands = append(app.Commands, cmd.BucketCmd)
+	// sort.Sort(cli.CommandsByName(cmd.BucketCmd.Subcommands))
+
+	// app.Commands = append(app.Commands, cmd.ShareCmd)
+	// sort.Sort(cli.CommandsByName(cmd.ShareCmd.Subcommands))
+
+	app.Commands = append(app.Commands, cliL.ImageCmd)
+	sort.Sort(cli.CommandsByName(cliL.ImageCmd.Subcommands))
+
+	// useless
+	// app.Commands = append(app.Commands, cliL.TemplateCmd)
+	// sort.Sort(cli.CommandsByName(cliL.TemplateCmd.Subcommands))
+
+	sort.Sort(cli.CommandsByName(app.Commands))
+	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Println("Build failed : ", err.Error())
-		return
+		fmt.Println(err)
 	}
-
-	networkRequest := model.NetworkRequest{
-		Name:	 "network_test",
-		IPVersion: IPVersion.IPv4,
-		CIDR:	 "10.8.0.1/24",
-		DNSServers:	[]string{},
-	}
-	network, err := local.CreateNetwork(networkRequest)
-	if err != nil {
-		fmt.Println("Create network failed : ", err.Error())
-		return
-	}
-	fmt.Println(network)
-
-
-
-	hostRequest := model.HostRequest{
-		ResourceName:	"vm_de_test",
-		PublicIP: 		true,
-		NetworkIDs:		[]string{network.ID},
-		TemplateID:		"03014bb3-9096-49a7-bf5e-0f9e440ad7c6",
-		ImageID:		"8891e5fc-b42b-49a0-b852-569cc1f1062d",
-	}
-	host, err := local.CreateHost(hostRequest)
-	if err != nil {
-		fmt.Println("Create Host failed : ", err.Error())
-		return
-	}
-	fmt.Println(host)
-	//local.DeleteHost("ded58a11-79a7-4c1c-9f6b-a992fdbda21c")
-
-	//fmt.Println(local.StartHost("e46a237e-827d-4060-8e16-ccc9b29caf8f"))
-
-	//fmt.Println(local.RebootHost("e46a237e-827d-4060-8e16-ccc9b29caf8f"))
-
-	//local.DeleteHost(host.ID)
-
-	//local.GetHost("247bdbc5-014f-4825-8995-97f5c110c2eb")
-	//local.GetHost("a1a77375-058f-47ab-adc2-9b6535f4597f")
-
-
-
-	//
-	//gatewayRequest := model.GWRequest{
-	//	NetworkID: network.ID,
-	//	GWName: 	"",
-	//	ImageID: 	"8891e5fc-b42b-49a0-b852-569cc1f1062d",
-	//	TemplateID: "03014bb3-9096-49a7-bf5e-0f9e440ad7c6",
-	//	KeyPair:	 nil,
-	//}
-	//
-	//fmt.Println(local.CreateGateway(gatewayRequest))
 }

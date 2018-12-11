@@ -19,8 +19,8 @@ package retry
 import (
 	"time"
 
-	"github.com/CS-SI/SafeScale/utils"
-	"github.com/CS-SI/SafeScale/utils/retry/Verdict"
+	"github.com/CS-SI/LocalDriver/utils"
+	"github.com/CS-SI/LocalDriver/utils/retry/Verdict"
 )
 
 // Arbiter sleeps or selects any amount of time for each attempt.

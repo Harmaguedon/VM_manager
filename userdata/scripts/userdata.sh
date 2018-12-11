@@ -221,7 +221,7 @@ reset_fw() {
         debian|ubuntu)
             systemctl stop ufw &>/dev/null
             systemctl disable ufw &>/dev/null
-            sfWaitForApt && apt purge -q ufw &>/dev/null
+            sfWaitForApt && apt purge -y -q ufw &>/dev/null
             ;;
 
         rhel|centos)
@@ -285,7 +285,7 @@ configure_as_gateway() {
     fw_i_accept -p tcp --dport ssh
 
     PU_IP=$(curl ipinfo.io/ip 2>/dev/null)
-    PU_IF=$(netstat -ie | grep -B1 ${PU_IP} | head -n1 | awk '{print $1}')
+    PU_IF=$(netstat -ie | grep -B1 {{ .PublicIp }} | head -n1 | awk '{print $1}')
     PU_IF=${PU_IF%%:}
 
     for IF in $(ls /sys/class/net); do
@@ -395,6 +395,8 @@ After=network.target
 
 [Service]
 ExecStart=/sbin/gateway
+Restart=on-failure
+StartLimitIntervalSec=10StartLimitIntervalSec=10
 
 [Install]
 WantedBy=multi-user.target

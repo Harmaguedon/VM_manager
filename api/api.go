@@ -59,7 +59,7 @@ type ClientAPI interface {
 	// DeleteNetwork deletes the network identified by id
 	DeleteNetwork(id string) error
 	// CreateGateway creates a public Gateway for a private network
-	CreateGateway(req model.GWRequest) (*model.Host, error)
+	CreateGateway(req model.GatewayRequest) (*model.Host, error)
 	// DeleteGateway ...
 	DeleteGateway(id string) error
 
@@ -82,29 +82,29 @@ type ClientAPI interface {
 	// GetHostState returns the current state of the host identified by id
 	GetHostState(hostParam interface{}) (HostState.Enum, error)
 
-	//// CreateVolume creates a block volume
-	//// - name is the name of the volume
-	//// - size is the size of the volume in GB
-	//// - volumeType is the type of volume to create, if volumeType is empty the driver use a default type
-	//CreateVolume(request model.VolumeRequest) (*model.Volume, error)
-	//// GetVolume returns the volume identified by id
-	//GetVolume(id string) (*model.Volume, error)
-	//// ListVolumes list available volumes
-	//ListVolumes(all bool) ([]model.Volume, error)
-	//// DeleteVolume deletes the volume identified by id
-	//DeleteVolume(id string) error
+	// CreateVolume creates a block volume
+	// - name is the name of the volume
+	// - size is the size of the volume in GB
+	// - volumeType is the type of volume to create, if volumeType is empty the driver use a default type
+	CreateVolume(request model.VolumeRequest) (*model.Volume, error)
+	// GetVolume returns the volume identified by id
+	GetVolume(id string) (*model.Volume, error)
+	// ListVolumes list available volumes
+	ListVolumes() ([]model.Volume, error)
+	// DeleteVolume deletes the volume identified by id
+	DeleteVolume(id string) error
 
-	//// CreateVolumeAttachment attaches a volume to an host
-	////- name of the volume attachment
-	////- volume to attach
-	////- host on which the volume is attached
-	//CreateVolumeAttachment(request model.VolumeAttachmentRequest) (string, error)
-	//// GetVolumeAttachment returns the volume attachment identified by id
-	//GetVolumeAttachment(serverID, id string) (*model.VolumeAttachment, error)
-	//// ListVolumeAttachments lists available volume attachment
-	//ListVolumeAttachments(serverID string) ([]model.VolumeAttachment, error)
-	//// DeleteVolumeAttachment deletes the volume attachment identifed by id
-	//DeleteVolumeAttachment(serverID, id string) error
+	// CreateVolumeAttachment attaches a volume to an host
+	//- name of the volume attachment
+	//- volume to attach
+	//- host on which the volume is attached
+	CreateVolumeAttachment(request model.VolumeAttachmentRequest) (string, error)
+	// GetVolumeAttachment returns the volume attachment identified by id
+	GetVolumeAttachment(serverID, id string) (*model.VolumeAttachment, error)
+	// ListVolumeAttachments lists available volume attachment
+	ListVolumeAttachments(serverID string) ([]model.VolumeAttachment, error)
+	// DeleteVolumeAttachment deletes the volume attachment identifed by id
+	DeleteVolumeAttachment(serverID, id string) error
 
 	// CreateContainer creates an object container
 	CreateContainer(name string) error
@@ -113,7 +113,7 @@ type ClientAPI interface {
 	//// ListContainers list object containers
 	ListContainers() ([]string, error)
 	// Getcontainer returns info of the container
-	GetContainer(name string) (*model.ContainerInfo, error)
+	GetContainer(name string) (*model.Bucket, error)
 
 	// PutObject put an object into an object container
 	PutObject(container string, obj model.Object) error
