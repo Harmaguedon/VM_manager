@@ -19,13 +19,14 @@ package local
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/CS-SI/LocalDriver/model"
-	"github.com/libvirt/libvirt-go"
-	"github.com/libvirt/libvirt-go-xml"
 	"hash/fnv"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/CS-SI/LocalDriver/model"
+	libvirt "github.com/libvirt/libvirt-go"
+	libvirtxml "github.com/libvirt/libvirt-go-xml"
 )
 
 //-------------Utils----------------------------------------------------------------------------------------------------
@@ -36,7 +37,7 @@ func hash(s string) string {
 	return strconv.Itoa(int(h.Sum32()))
 }
 
-func getVolumeId(volume *libvirt.StorageVol) (string, error)  {
+func getVolumeId(volume *libvirt.StorageVol) (string, error) {
 	volumeName, err := volume.GetName()
 	if err != nil {
 		return "", fmt.Errorf("Failed to get volume name : %s", err.Error())
@@ -87,7 +88,7 @@ func getVolumeFromLibvirtVolume(libvirtVolume *libvirt.StorageVol) (*model.Volum
 	volume := model.NewVolume()
 
 	volumeXML, err := libvirtVolume.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed get xml description of the volume : %s", err.Error()))
 	}
 	volumeDescription := &libvirtxml.StorageVolume{}
@@ -108,23 +109,22 @@ func getVolumeFromLibvirtVolume(libvirtVolume *libvirt.StorageVol) (*model.Volum
 	return volume, nil
 }
 
-func getAttachmentFromVolumeAndDomain(volume *libvirt.StorageVol, domain *libvirt.Domain) (*model.VolumeAttachment, error){
+func getAttachmentFromVolumeAndDomain(volume *libvirt.StorageVol, domain *libvirt.Domain) (*model.VolumeAttachment, error) {
 	attachment := &model.VolumeAttachment{}
 
 	domainXML, err := domain.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed get xml description of the domain : %s", err.Error()))
 	}
 	domainDescription := &libvirtxml.Domain{}
 	err = xml.Unmarshal([]byte(domainXML), domainDescription)
 
 	volumeXML, err := volume.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed get xml description of the domain : %s", err.Error()))
 	}
 	volumeDescription := &libvirtxml.StorageVolume{}
 	err = xml.Unmarshal([]byte(volumeXML), volumeDescription)
-
 
 	//----ID----
 	id, err := getAttachmentId(volume, domain)
@@ -186,8 +186,8 @@ func (client *Client) CreateVolume(request model.VolumeRequest) (*model.Volume, 
 	}
 	var freeStoragePool *libvirt.StoragePool
 	for _, storagePool := range storagePools {
-		info, err := storagePool. GetInfo()
-		if err != nil  {
+		info, err := storagePool.GetInfo()
+		if err != nil {
 			return nil, fmt.Errorf("Failed to get storagePool name : %s", err.Error())
 		}
 
@@ -195,7 +195,6 @@ func (client *Client) CreateVolume(request model.VolumeRequest) (*model.Volume, 
 			freeStoragePool = &storagePool
 			break
 		}
-
 	}
 
 	if freeStoragePool == nil {
@@ -203,7 +202,7 @@ func (client *Client) CreateVolume(request model.VolumeRequest) (*model.Volume, 
 	}
 
 	freeStoragePoolXML, err := freeStoragePool.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed get xml description of the storage pool : %s", err.Error()))
 	}
 	storagePoolDescription := &libvirtxml.StoragePool{}
@@ -211,11 +210,11 @@ func (client *Client) CreateVolume(request model.VolumeRequest) (*model.Volume, 
 
 	requestXML := `
 	<volume>
-		<name>volume-`+request.Name+`</name>
+		<name>` + request.Name + `</name>
 		<allocation>0</allocation>
-		<capacity unit="G">`+strconv.Itoa(request.Size)+`</capacity>
+		<capacity unit="G">` + strconv.Itoa(request.Size) + `</capacity>
 		<target>
-			<path>`+storagePoolDescription.Target.Path+`</path>
+			<path>` + storagePoolDescription.Target.Path + `</path>
         </target>
 	</volume>`
 
@@ -228,7 +227,6 @@ func (client *Client) CreateVolume(request model.VolumeRequest) (*model.Volume, 
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get model.Volume form libvirt.Volume %s on pool %s : %s", request.Name, storagePoolDescription.Name, err.Error())
 	}
-
 
 	return volume, nil
 }
@@ -289,19 +287,17 @@ func (client *Client) DeleteVolume(ref string) error {
 	return nil
 }
 
-
 // CreateVolumeAttachment attaches a volume to an host
 // - 'name' of the volume attachment
 // - 'volume' to attach
 // - 'host' on which the volume is attached
 func (client *Client) CreateVolumeAttachment(request model.VolumeAttachmentRequest) (string, error) {
-	_, domain, err  := client.getHostAndDomainFromRef(request.HostID)
+	_, domain, err := client.getHostAndDomainFromRef(request.HostID)
 	if err != nil {
 		return "", fmt.Errorf("Failed to get domain from request.HostID : %s", err.Error())
 	}
 	domainXML, err := domain.GetXMLDesc(0)
-	fmt.Println(domainXML)
-	if err != nil{
+	if err != nil {
 		return "", fmt.Errorf(fmt.Sprintf("Failed get xml description of the volume : %s", err.Error()))
 	}
 	domainDescription := &libvirtxml.Domain{}
@@ -312,7 +308,7 @@ func (client *Client) CreateVolumeAttachment(request model.VolumeAttachmentReque
 		return "", fmt.Errorf("Failed to get the libvirt.Volume from ref : %s", err.Error())
 	}
 	volumeXML, err := libvirtVolume.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return "", fmt.Errorf(fmt.Sprintf("Failed get xml description of the volume : %s", err.Error()))
 	}
 	volumeDescription := &libvirtxml.StorageVolume{}
@@ -324,15 +320,15 @@ func (client *Client) CreateVolumeAttachment(request model.VolumeAttachmentReque
 	}
 	sort.Strings(diskNames)
 	lastDiskName := diskNames[len(diskNames)-1]
-	tmpInt, err  := strconv.ParseInt(lastDiskName, 36, 64)
-	newDiskName  := strconv.FormatInt(tmpInt+1, 36)
-	newDiskName   = strings.Replace(newDiskName, "0", "a", -1)
+	tmpInt, err := strconv.ParseInt(lastDiskName, 36, 64)
+	newDiskName := strconv.FormatInt(tmpInt+1, 36)
+	newDiskName = strings.Replace(newDiskName, "0", "a", -1)
 	//TODO not working for a name only made of z (ex: 'zzz' will became '1aaa')
 
 	requestXML := `
 	<disk type='file' device='disk'>
-		<source volume='' file='`+volumeDescription.Target.Path+`'/>
-		<target dev='`+newDiskName+`' bus='virtio'/>
+		<source volume='' file='` + volumeDescription.Target.Path + `'/>
+		<target dev='` + newDiskName + `' bus='virtio'/>
 	</disk>`
 
 	err = domain.AttachDevice(requestXML)
@@ -350,7 +346,7 @@ func (client *Client) CreateVolumeAttachment(request model.VolumeAttachmentReque
 
 // GetVolumeAttachment returns the volume attachment identified by id
 func (client *Client) GetVolumeAttachment(serverID, id string) (*model.VolumeAttachment, error) {
-	_, domain, err  := client.getHostAndDomainFromRef(serverID)
+	_, domain, err := client.getHostAndDomainFromRef(serverID)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get domain from ref : %s", err.Error())
 	}
@@ -370,7 +366,7 @@ func (client *Client) GetVolumeAttachment(serverID, id string) (*model.VolumeAtt
 
 // DeleteVolumeAttachment ...
 func (client *Client) DeleteVolumeAttachment(serverID, id string) error {
-	_, domain, err  := client.getHostAndDomainFromRef(serverID)
+	_, domain, err := client.getHostAndDomainFromRef(serverID)
 	if err != nil {
 		return fmt.Errorf("Failed to get domain from ref : %s", err.Error())
 	}
@@ -381,19 +377,18 @@ func (client *Client) DeleteVolumeAttachment(serverID, id string) error {
 	}
 
 	domainXML, err := domain.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed get xml description of the domain : %s", err.Error()))
 	}
 	domainDescription := &libvirtxml.Domain{}
 	err = xml.Unmarshal([]byte(domainXML), domainDescription)
 
 	volumeXML, err := libvirtVolume.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return fmt.Errorf(fmt.Sprintf("Failed get xml description of the domain : %s", err.Error()))
 	}
 	volumeDescription := &libvirtxml.StorageVolume{}
 	err = xml.Unmarshal([]byte(volumeXML), volumeDescription)
-
 
 	for _, disk := range domainDescription.Devices.Disks {
 		splittedPath := strings.Split(disk.Source.File.File, "/")
@@ -401,8 +396,8 @@ func (client *Client) DeleteVolumeAttachment(serverID, id string) error {
 		if volumeDescription.Name == diskName {
 			requestXML := `
 			<disk type='file' device='disk'>
-				<source ` + disk.Source.File.File + `'/>
-				<target dev='`+disk.Target.Dev+`' bus='`+disk.Target.Bus+`'/>
+				<source file='` + disk.Source.File.File + `'/>
+				<target dev='` + disk.Target.Dev + `' bus='` + disk.Target.Bus + `'/>
 			</disk>`
 			err = domain.DetachDevice(requestXML)
 			if err != nil {
@@ -420,13 +415,13 @@ func (client *Client) ListVolumeAttachments(serverID string) ([]model.VolumeAtta
 	var volumes []*libvirt.StorageVol
 	var volumeAttachments []model.VolumeAttachment
 
-	_, domain, err  := client.getHostAndDomainFromRef(serverID)
+	_, domain, err := client.getHostAndDomainFromRef(serverID)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get domain from ref : %s", err.Error())
 	}
 
 	domainXML, err := domain.GetXMLDesc(0)
-	if err != nil{
+	if err != nil {
 		return nil, fmt.Errorf(fmt.Sprintf("Failed get xml description of the domain : %s", err.Error()))
 	}
 	domainDescription := &libvirtxml.Domain{}
@@ -451,7 +446,6 @@ func (client *Client) ListVolumeAttachments(serverID string) ([]model.VolumeAtta
 		}
 		volumeAttachments = append(volumeAttachments, *volumeAttachment)
 	}
-
 
 	return volumeAttachments, nil
 }

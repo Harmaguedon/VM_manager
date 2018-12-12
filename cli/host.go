@@ -39,7 +39,7 @@ var HostCmd = cli.Command{
 		hostStop,
 		hostReboot,
 		hostStatus,
-		// hostSsh,
+		hostSsh,
 	},
 }
 
@@ -142,14 +142,14 @@ var hostCreate = cli.Command{
 			networkName = net.Name
 		}
 		mNetwork, err := metadata.LoadNetwork(client, networkName)
-		if err != nil {
-			return fmt.Errorf("Failed to load network '%s' metadatas : %s", networkName, err.Error())
+		if err != nil || mNetwork == nil {
+			return fmt.Errorf("Failed to load network '%s' metadatas", networkName)
 		}
 		network := mNetwork.Get()
 
 		mGw, err := metadata.LoadHost(client, network.GatewayID)
-		if err != nil {
-			return fmt.Errorf("Failed to load host '%s'  gateway metadatas : %s", networkName, err.Error())
+		if err != nil || mGw == nil {
+			return fmt.Errorf("Failed to load host '%s'  gateway metadatas", networkName)
 		}
 		gw := mGw.Get()
 
@@ -199,8 +199,8 @@ var hostDelete = cli.Command{
 
 		for _, hostName := range hostList {
 			mHost, err := metadata.LoadHost(client, hostName)
-			if err != nil {
-				return fmt.Errorf("Host '%s' not found in metadatas %s", hostName, err.Error())
+			if err != nil || mHost == nil {
+				return fmt.Errorf("Host '%s' not found in metadatas", hostName)
 			}
 
 			err = client.DeleteHost(hostName)
@@ -363,23 +363,25 @@ var hostStatus = cli.Command{
 	},
 }
 
-// var hostSsh = cli.Command{
-// 	Name:      "ssh",
-// 	Usage:     "Get ssh config to connect to host",
-// 	ArgsUsage: "<Host_name|Host_ID>",
-// 	Action: func(c *cli.Context) error {
-// 		if c.NArg() != 1 {
-// 			return fmt.Errorf("Missing mandatory argument <Host_name>")
-// 		}
+var hostSsh = cli.Command{
+	Name:      "ssh",
+	Usage:     "Get ssh config to connect to host",
+	ArgsUsage: "<Host_name|Host_ID>",
+	Action: func(c *cli.Context) error {
+		if c.NArg() != 1 {
+			return fmt.Errorf("Missing mandatory argument <Host_name>")
+		}
 
-// 		client, err := NewClient()
-// 		if err != nil {
-// 			return fmt.Errorf("Failed to get a new client : %s", err.Error())
-// 		}
+		sshConfig, err := GetSSHConfigFromHostName(c.Args().First())
+		if err != nil {
+			return fmt.Errorf("Failed to get a sshConfig : %s", err.Error())
+		}
 
-// 		return nil
-// 	},
-// }
+		DisplaySSHConfig(sshConfig)
+
+		return nil
+	},
+}
 
 func displayHost(host *model.Host) {
 	fmt.Println(host)

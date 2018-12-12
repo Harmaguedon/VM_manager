@@ -18,8 +18,15 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/CS-SI/LocalDriver/metadata"
 	"github.com/CS-SI/LocalDriver/model"
+	"github.com/CS-SI/LocalDriver/model/enums/HostProperty"
+	"github.com/CS-SI/LocalDriver/model/enums/VolumeProperty"
+	propsv1 "github.com/CS-SI/LocalDriver/model/properties/v1"
+	"github.com/CS-SI/LocalDriver/system"
+	"github.com/CS-SI/LocalDriver/system/nfs"
 
 	"github.com/urfave/cli"
 )
@@ -33,8 +40,8 @@ var VolumeCmd = cli.Command{
 		volumeDelete,
 		volumeList,
 		volumeInspect,
-		// volumeAttach,
-		// volumeDetach,
+		volumeAttach,
+		volumeDetach,
 	},
 }
 
@@ -70,6 +77,11 @@ var volumeCreate = cli.Command{
 			return fmt.Errorf("Failed to create volume %s", err.Error())
 		}
 
+		err = metadata.SaveVolume(client, volume)
+		if err != nil {
+			return fmt.Errorf("Failed to save volume metadatas : %s", err.Error())
+		}
+
 		displayVolume(volume)
 
 		return nil
@@ -95,12 +107,23 @@ var volumeDelete = cli.Command{
 		volumeList = append(volumeList, c.Args().First())
 		volumeList = append(volumeList, c.Args().Tail()...)
 
-		for _, volume := range volumeList {
-			err = client.DeleteVolume(volume)
+		for _, volumeName := range volumeList {
+			mVolume, err := metadata.LoadVolume(client, volumeName)
 			if err != nil {
-				return fmt.Errorf("Failed to delete '%s' volume : %s", volume, err.Error())
+				return fmt.Errorf("Failed to load volume '%s' from metadatas : %s", volumeName, err.Error())
 			}
-			fmt.Println(fmt.Sprintf("Volume '%s' sucessfully deleted", volume))
+			volume := mVolume.Get()
+
+			err = client.DeleteVolume(volumeName)
+			if err != nil {
+				return fmt.Errorf("Failed to delete '%s' volume : %s", volumeName, err.Error())
+			}
+			fmt.Println(fmt.Sprintf("Volume '%s' sucessfully deleted", volumeName))
+
+			err = metadata.RemoveVolume(client, volume.ID)
+			if err != nil {
+				return fmt.Errorf("Failed to save volume metadatas : %s", err.Error())
+			}
 		}
 
 		return nil
@@ -157,118 +180,288 @@ var volumeInspect = cli.Command{
 	},
 }
 
-// var volumeAttach = cli.Command{
-// 	Name:      "attach",
-// 	Usage:     "Attach a volume to an host",
-// 	ArgsUsage: "<Volume_name|Volume_ID> <Host_name|Host_ID>",
-// 	Flags: []cli.Flag{
-// 		cli.StringFlag{
-// 			Name:  "path",
-// 			Value: model.DefaultVolumeMountPoint,
-// 			Usage: "Mount point of the volume",
-// 		},
-// 		cli.StringFlag{
-// 			Name:  "format",
-// 			Value: "ext4",
-// 			Usage: "Filesystem format",
-// 		},
-// 	},
-// 	Action: func(c *cli.Context) error {
-// 		if c.NArg() != 2 {
-// 			fmt.Println("Missing mandatory argument <Volume_name> and/or <Host_name>")
-// 			_ = cli.ShowSubcommandHelp(c)
-// 			return clitools.ExitOnInvalidArgument()
-// 		}
-// 		def := pb.VolumeAttachment{
-// 			Format:    c.String("format"),
-// 			MountPath: c.String("path"),
-// 			Host:      &pb.Reference{Name: c.Args().Get(1)},
-// 			Volume:    &pb.Reference{Name: c.Args().Get(0)},
-// 		}
-// 		err := client.New().Volume.Attach(def, client.DefaultExecutionTimeout)
-// 		if err != nil {
-// 			return clitools.ExitOnRPC(utils.TitleFirst(client.DecorateError(err, "attach of volume", true).Error()))
-// 		}
-// 		fmt.Printf("Volume '%s' attached to host '%s'\n", c.Args().Get(0), c.Args().Get(1))
-// 		return nil
-// 	},
-// }
+var volumeAttach = cli.Command{
+	Name:      "attach",
+	Usage:     "Attach a volume to an host",
+	ArgsUsage: "<Volume_name|Volume_ID> <Host_name|Host_ID>",
+	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "path",
+			Value: model.DefaultVolumeMountPoint,
+			Usage: "Mount point of the volume",
+		},
+		cli.StringFlag{
+			Name:  "format",
+			Value: "ext4",
+			Usage: "Filesystem format",
+		},
+	},
+	Action: func(c *cli.Context) error {
+		if c.NArg() != 2 {
+			_ = cli.ShowSubcommandHelp(c)
+			return fmt.Errorf("Missing mandatory argument <Volume_name> and/or <Host_name>")
+		}
 
-// var volumeDetach = cli.Command{
-// 	Name:      "detach",
-// 	Usage:     "Detach a volume from an host",
-// 	ArgsUsage: "<Volume_name|Volume_ID> <Host_name|Host_ID>",
-// 	Action: func(c *cli.Context) error {
-// 		if c.NArg() != 2 {
-// 			fmt.Println("Missing mandatory argument <Volume_name> and/or <Host_name>")
-// 			_ = cli.ShowSubcommandHelp(c)
-// 			return clitools.ExitOnInvalidArgument()
-// 		}
-// 		err := client.New().Volume.Detach(c.Args().Get(0), c.Args().Get(1), client.DefaultExecutionTimeout)
-// 		if err != nil {
-// 			return clitools.ExitOnRPC(utils.TitleFirst(client.DecorateError(err, "unattach of volume", true).Error()))
-// 		}
+		client, err := NewClient()
+		if err != nil {
+			return fmt.Errorf("Failed to get a new client : %s", err.Error())
+		}
 
-// 		fmt.Printf("Volume '%s' detached from host '%s'\n", c.Args().Get(0), c.Args().Get(1))
-// 		return nil
-// 	},
-// }
+		mVolume, err := metadata.LoadVolume(client, c.Args().Get(0))
+		if err != nil {
+			return fmt.Errorf("Volume '%s' not found in metadatas", c.Args().Get(0))
+		}
+		volume := mVolume.Get()
+		volumeAttachedV1 := propsv1.NewVolumeAttachments()
+		err = volume.Properties.Get(VolumeProperty.AttachedV1, volumeAttachedV1)
+		if err != nil {
+			return fmt.Errorf("Failed to get volume propertie AttachedV1 : %s", err.Error())
+		}
 
-// type volumeInfoDisplayable struct {
-// 	ID        string
-// 	Name      string
-// 	Speed     string
-// 	Size      int32
-// 	Host      string
-// 	MountPath string	app.Commands = append(app.Commands, cmd.VolumeCmd)
-//	sort.Sort(cli.CommandsByName(cmd.VolumeCmd.Subcommands))
-// 	Format    string
-// 	Device    string
-// }
+		mHost, err := metadata.LoadHost(client, c.Args().Get(1))
+		if err != nil || mHost == nil {
+			return fmt.Errorf("Host '%s' not found in metadatas", c.Args().Get(1))
+		}
+		host := mHost.Get()
+		hostVolumesV1 := propsv1.NewHostVolumes()
+		err = host.Properties.Get(HostProperty.VolumesV1, hostVolumesV1)
+		if err != nil {
+			return fmt.Errorf("Failed to get host propertie hostVolumesV1 : %s", err.Error())
+		}
+		hostMountsV1 := propsv1.NewHostMounts()
+		err = host.Properties.Get(HostProperty.MountsV1, hostMountsV1)
+		if err != nil {
+			return fmt.Errorf("Failed to get volume propertie hostMountsV1 : %s", err.Error())
+		}
 
-// type volumeDisplayable struct {
-// 	ID    string
-// 	Name  string
-// 	Speed string
-// 	Size  int32
-// }
+		sshConfig, err := GetSSHConfigFromHostName(c.Args().Get(1))
+		if err != nil {
+			return fmt.Errorf("Failed get the sshConfig : %s", err.Error())
+		}
+		oldDiskSet, err := listAttachedDevices(sshConfig)
+		if err != nil {
+			return fmt.Errorf("Failed to get list of connected disks : %s", err.Error())
+		}
 
-// func toDisplaybleVolumeInfo(volumeInfo *pb.VolumeInfo) *volumeInfoDisplayable {
-// 	return &volumeInfoDisplayable{
-// 		volumeInfo.GetID(),
-// 		volumeInfo.GetName(),
-// 		pb.VolumeSpeed_name[int32(volumeInfo.GetSpeed())],
-// 		volumeInfo.GetSize(),
-// 		brokerutils.GetReference(volumeInfo.GetHost()),
-// 		volumeInfo.GetMountPath(),
-// 		volumeInfo.GetFormat(),
-// 		volumeInfo.GetDevice(),
-// 	}
-// }
+		volumeAttachmentRequest := model.VolumeAttachmentRequest{
+			Name:     "attachment-" + host.Name + "-" + volume.Name,
+			VolumeID: volume.ID,
+			HostID:   host.ID,
+		}
+		vaID, err := client.CreateVolumeAttachment(volumeAttachmentRequest)
+		if err != nil {
+			return fmt.Errorf("Failed to create an attachment between volume '%s' and host '%s' : %s", c.Args().Get(0), c.Args().Get(1), err.Error())
+		}
 
-// func toDisplaybleVolume(volumeInfo *pb.Volume) *volumeDisplayable {
-// 	return &volumeDisplayable{
-// 		volumeInfo.GetID(),
-// 		volumeInfo.GetName(),
-// 		pb.VolumeSpeed_name[int32(volumeInfo.GetSpeed())],
-// 		volumeInfo.GetSize(),
-// 	}
-// }
+		newDiskSet, err := listAttachedDevices(sshConfig)
+		if err != nil {
+			return fmt.Errorf("Failed to get list of connected disks : %s", err.Error())
+		}
 
-// func getAllowedSpeeds() string {
-// 	speeds := ""
-// 	i := 0
-// 	for k := range pb.VolumeSpeed_value {
-// 		if i > 0 {
-// 			speeds += ", "
-// 		}
-// 		speeds += k
-// 		i++
+		diff := difference(oldDiskSet, newDiskSet)
+		if len(diff) != 1 {
+			return fmt.Errorf("Failed to create an attachment between volume '%s' and host '%s' : %s", c.Args().Get(0), c.Args().Get(1), err.Error())
+		}
+		newDisk := diff[0]
+		diskName := "/dev/" + newDisk
 
-// 	}
-// 	return speeds
-// }
+		server, err := nfs.NewServer(sshConfig)
+		if err != nil {
+			return fmt.Errorf("Failed to creare the nfsServer : %s", err.Error())
+		}
+		err = server.MountBlockDevice(diskName, c.String("path"), c.String("format"))
+		if err != nil {
+			return fmt.Errorf("Failed to mount the block device : %s", err.Error())
+		}
+
+		volumeAttachedV1.Hosts[host.ID] = host.Name
+		err = volume.Properties.Set(VolumeProperty.AttachedV1, volumeAttachedV1)
+		if err != nil {
+			return fmt.Errorf("Failed to set volume propertie AttachedV1 : %s", err.Error())
+		}
+		err = metadata.SaveVolume(client, volume)
+		if err != nil {
+			return fmt.Errorf("Failed to save volume metadatas : %s", err.Error())
+		}
+
+		hostVolumesV1.VolumesByID[volume.ID] = &propsv1.HostVolume{
+			AttachID: vaID,
+			Device:   diskName,
+		}
+		hostVolumesV1.VolumesByName[volume.Name] = volume.ID
+		hostVolumesV1.VolumesByDevice[diskName] = volume.ID
+		hostVolumesV1.DevicesByID[volume.ID] = diskName
+		err = host.Properties.Set(HostProperty.VolumesV1, hostVolumesV1)
+		if err != nil {
+			return fmt.Errorf("Failed to set host propertie hostVolumesV1 : %s", err.Error())
+		}
+		hostMountsV1.LocalMountsByPath[c.String("path")] = &propsv1.HostLocalMount{
+			Device:     diskName,
+			Path:       c.String("path"),
+			FileSystem: "nfs",
+		}
+		hostMountsV1.LocalMountsByDevice[diskName] = c.String("path")
+		err = host.Properties.Set(HostProperty.MountsV1, hostMountsV1)
+		if err != nil {
+			return fmt.Errorf("Failed to set host propertie hostMountsV1 : %s", err.Error())
+		}
+		err = metadata.SaveHost(client, host)
+		if err != nil {
+			return fmt.Errorf("Failed to save host metadatas : %s", err.Error())
+		}
+
+		fmt.Printf("Volume '%s' attached to host '%s'\n", c.Args().Get(0), c.Args().Get(1))
+		return nil
+	},
+
+	//TODO check if mout path is not duplicated!
+}
+
+var volumeDetach = cli.Command{
+	Name:      "detach",
+	Usage:     "Detach a volume from an host",
+	ArgsUsage: "<Volume_name|Volume_ID> <Host_name|Host_ID>",
+	Action: func(c *cli.Context) error {
+		//TODO when detaching a volume the name of the other volumes evolves (detach all and re attach all execpt the chosen one?)
+		if c.NArg() != 2 {
+			_ = cli.ShowSubcommandHelp(c)
+			return fmt.Errorf("Missing mandatory argument <Volume_name> and/or <Host_name>")
+		}
+
+		client, err := NewClient()
+		if err != nil {
+			return fmt.Errorf("Failed to get a new client : %s", err.Error())
+		}
+
+		mVolume, err := metadata.LoadVolume(client, c.Args().Get(0))
+		if err != nil {
+			return fmt.Errorf("Volume '%s' not found in metadatas", c.Args().Get(0))
+		}
+		volume := mVolume.Get()
+		volumeAttachedV1 := propsv1.NewVolumeAttachments()
+		err = volume.Properties.Get(VolumeProperty.AttachedV1, volumeAttachedV1)
+		if err != nil {
+			return fmt.Errorf("Failed to get volume propertie AttachedV1 : %s", err.Error())
+		}
+
+		mHost, err := metadata.LoadHost(client, c.Args().Get(1))
+		if err != nil || mHost == nil {
+			return fmt.Errorf("Host '%s' not found in metadatas", c.Args().Get(1))
+		}
+		host := mHost.Get()
+		hostVolumesV1 := propsv1.NewHostVolumes()
+		err = host.Properties.Get(HostProperty.VolumesV1, hostVolumesV1)
+		if err != nil {
+			return fmt.Errorf("Failed to get host propertie hostVolumesV1 : %s", err.Error())
+		}
+		hostMountsV1 := propsv1.NewHostMounts()
+		err = host.Properties.Get(HostProperty.MountsV1, hostMountsV1)
+		if err != nil {
+			return fmt.Errorf("Failed to get volume propertie hostMountsV1 : %s", err.Error())
+		}
+
+		attachment, found := hostVolumesV1.VolumesByID[volume.ID]
+		if !found {
+			return fmt.Errorf("Fo attachments found, volume '%s' not attached to host '%s'", volume.Name, host.Name)
+		}
+		device := attachment.Device
+		path := hostMountsV1.LocalMountsByDevice[device]
+		mount := hostMountsV1.LocalMountsByPath[path]
+		if mount == nil {
+			return fmt.Errorf("metadata inconsistency: no mount corresponding to volume attachment")
+		}
+
+		sshConfig, err := GetSSHConfigFromHostName(c.Args().Get(1))
+		if err != nil {
+			return fmt.Errorf("Failed get the sshConfig : %s", err.Error())
+		}
+		server, err := nfs.NewServer(sshConfig)
+		if err != nil {
+			return fmt.Errorf("Failed to creare the nfsServer : %s", err.Error())
+		}
+		err = server.UnmountBlockDevice(attachment.Device)
+		if err != nil {
+			return fmt.Errorf("Failed to mount the block device : %s", err.Error())
+		}
+		err = client.DeleteVolumeAttachment(host.ID, attachment.AttachID)
+		if err != nil {
+			return fmt.Errorf("Failed to delete the volume attachment : %s", err.Error())
+		}
+
+		delete(hostVolumesV1.VolumesByID, volume.ID)
+		delete(hostVolumesV1.VolumesByName, volume.Name)
+		delete(hostVolumesV1.VolumesByDevice, attachment.Device)
+		delete(hostVolumesV1.DevicesByID, volume.ID)
+		err = host.Properties.Set(HostProperty.VolumesV1, hostVolumesV1)
+		if err != nil {
+			return fmt.Errorf("Failed to set host propertie hostVolumesV1 : %s", err.Error())
+		}
+
+		delete(hostMountsV1.LocalMountsByDevice, mount.Device)
+		delete(hostMountsV1.LocalMountsByPath, mount.Path)
+		err = host.Properties.Set(HostProperty.MountsV1, hostMountsV1)
+		if err != nil {
+			return fmt.Errorf("Failed to set host propertie hostMountsV1 : %s", err.Error())
+		}
+
+		err = metadata.SaveHost(client, host)
+		if err != nil {
+			return fmt.Errorf("Failed to save host metadatas : %s", err.Error())
+		}
+
+		delete(volumeAttachedV1.Hosts, host.ID)
+		err = volume.Properties.Set(VolumeProperty.AttachedV1, volumeAttachedV1)
+		if err != nil {
+			return fmt.Errorf("Failed to set volume propertie volumeAttachedV1 : %s", err.Error())
+		}
+
+		err = metadata.SaveVolume(client, volume)
+		if err != nil {
+			return fmt.Errorf("Failed to save volume metadatas : %s", err.Error())
+		}
+
+		fmt.Printf("Volume '%s' detached from host '%s'\n", c.Args().Get(0), c.Args().Get(1))
+		return nil
+	},
+}
 
 func displayVolume(volume *model.Volume) {
 	fmt.Println(volume)
+}
+
+func listAttachedDevices(sshConfig *system.SSHConfig) ([]string, error) {
+	disks := []string{}
+	command := "sudo lsblk -l -o NAME,TYPE | grep disk | cut -d' ' -f1"
+	retcode, stdout, stderr, err := SSHCommandRun(command, sshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to run the command : %s", err.Error())
+	} else if retcode != 0 {
+		return nil, fmt.Errorf("Command did not finish properly : %s", stderr)
+	}
+
+	for _, disk := range strings.Split(stdout, "\n") {
+		disks = append(disks, disk)
+	}
+
+	return disks, nil
+}
+
+func difference(slice1 []string, slice2 []string) []string {
+	diffStr := []string{}
+	m := map[string]int{}
+
+	for _, s1Val := range slice1 {
+		m[s1Val] = 1
+	}
+	for _, s2Val := range slice2 {
+		m[s2Val] = m[s2Val] + 1
+	}
+
+	for mKey, mVal := range m {
+		if mVal == 1 {
+			diffStr = append(diffStr, mKey)
+		}
+	}
+
+	return diffStr
 }

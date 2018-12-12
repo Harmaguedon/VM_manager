@@ -99,8 +99,6 @@ var networkCreate = cli.Command{
 
 		}
 
-		displayNetwork(network)
-
 		image, err := client.GetImage(c.String("os"))
 		if err != nil {
 			return fmt.Errorf("Failed to get the image : %s", err.Error())
@@ -144,6 +142,8 @@ var networkCreate = cli.Command{
 
 		metadata.SaveNetwork(client, network)
 
+		displayNetwork(network)
+
 		return nil
 	},
 }
@@ -169,13 +169,13 @@ var networkDelete = cli.Command{
 
 		for _, networkName := range networkList {
 			mNetwork, err := metadata.LoadNetwork(client, networkName)
-			if err != nil {
-				return fmt.Errorf("Network '%s' not found in metadatas %s", networkName, err.Error())
+			if err != nil || mNetwork == nil {
+				return fmt.Errorf("Network '%s' not found in metadatas", networkName)
 			}
 			network := mNetwork.Get()
 			mGW, err := metadata.LoadHost(client, network.GatewayID)
-			if err != nil {
-				return fmt.Errorf("Network '%s' not found in metadatas %s", networkName, err.Error())
+			if err != nil || mGW == nil {
+				return fmt.Errorf("Network '%s' not found in metadatas", networkName)
 			}
 			gw := mGW.Get()
 

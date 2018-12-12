@@ -29,15 +29,12 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"text/template"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/CS-SI/LocalDriver/utils"
 	"github.com/CS-SI/LocalDriver/utils/retry"
@@ -150,7 +147,6 @@ func (tunnel *SSHTunnel) Close() error {
 	// Kills the process of the tunnel
 	err := tunnel.cmd.Process.Kill()
 	if err != nil {
-		log.Printf("tunnel.cmd.Process.Kill() failed: %s\n", reflect.TypeOf(err).String())
 		return fmt.Errorf("Unable to close tunnel :%s", err.Error())
 	}
 	// Kills remaining processes if there are some
@@ -161,7 +157,6 @@ func (tunnel *SSHTunnel) Close() error {
 		if err == nil {
 			err = exec.Command("kill", "-9", portStr).Run()
 			if err != nil {
-				log.Printf("kill -9 failed: %s\n", reflect.TypeOf(err).String())
 				return fmt.Errorf("Unable to close tunnel :%s", err.Error())
 			}
 		}
@@ -193,17 +188,14 @@ func CreateTempFileFromString(content string, filemode os.FileMode) (*os.File, e
 	}
 	_, err = f.WriteString(content)
 	if err != nil {
-		log.Warnf("Error writing string: %v", err)
 	}
 
 	err = f.Chmod(filemode)
 	if err != nil {
-		log.Warnf("Error changing directory: %v", err)
 	}
 
 	err = f.Close()
 	if err != nil {
-		log.Warnf("Error closing file: %v", err)
 	}
 
 	return f, nil
@@ -217,7 +209,6 @@ func isTunnelReady(port int) bool {
 	}
 	err = server.Close()
 	if err != nil {
-		log.Warnf("Error closing server: %v", err)
 	}
 	return false
 
@@ -281,7 +272,6 @@ func (c *SSHCommand) closeTunnels() error {
 	}
 	//Tunnels are imbricated only last error is significant
 	if err != nil {
-		log.Printf("closeTunnels: %s\n", reflect.TypeOf(err).String())
 	}
 	return err
 }
@@ -296,7 +286,6 @@ func (c *SSHCommand) Wait() error {
 	err := c.cmd.Wait()
 	nerr := c.end()
 	if nerr != nil {
-		log.Warnf("Error waiting for command end: %v", nerr)
 	}
 	return err
 
@@ -307,7 +296,6 @@ func (c *SSHCommand) Kill() error {
 	err := c.cmd.Process.Kill()
 	nerr := c.end()
 	if nerr != nil {
-		log.Warnf("Error waiting for command end: %v", nerr)
 	}
 	return err
 }
@@ -340,7 +328,6 @@ func (c *SSHCommand) Output() ([]byte, error) {
 	content, err := c.cmd.Output()
 	nerr := c.end()
 	if nerr != nil {
-		log.Warnf("Error waiting for command end: %v", nerr)
 	}
 	return content, err
 }
@@ -351,7 +338,6 @@ func (c *SSHCommand) CombinedOutput() ([]byte, error) {
 	content, err := c.cmd.CombinedOutput()
 	nerr := c.end()
 	if nerr != nil {
-		log.Warnf("Error waiting for command end: %v", nerr)
 	}
 	return content, err
 }
@@ -398,7 +384,6 @@ func (c *SSHCommand) Run() (int, string, string, error) {
 	err = c.Wait()
 	nerr := c.end()
 	if nerr != nil {
-		log.Warnf("Error waiting for command end: %v", nerr)
 	}
 	if err != nil {
 		msgError, retCode, erro := ExtractRetCode(err)
@@ -416,7 +401,6 @@ func (c *SSHCommand) end() error {
 	err1 := c.closeTunnels()
 	err2 := utils.LazyRemove(c.keyFile.Name())
 	if err1 != nil {
-		log.Printf("closeTunnels() failed: %s\n", reflect.TypeOf(err1).String())
 		return fmt.Errorf("Unable to close ssh tunnels: %s", err1.Error())
 	}
 	if err2 != nil {
@@ -635,7 +619,6 @@ func (ssh *SSHConfig) Exec(cmdString string) error {
 		for _, t := range tunnels {
 			nerr := t.Close()
 			if nerr != nil {
-				log.Warnf("Error closing ssh tunnel: %v", nerr)
 			}
 		}
 		return fmt.Errorf("Unable to create command : %s", err.Error())
@@ -645,13 +628,11 @@ func (ssh *SSHConfig) Exec(cmdString string) error {
 		for _, t := range tunnels {
 			nerr := t.Close()
 			if nerr != nil {
-				log.Warnf("Error closing ssh tunnel: %v", nerr)
 			}
 		}
 		if keyFile != nil {
 			nerr := utils.LazyRemove(keyFile.Name())
 			if nerr != nil {
-				log.Warnf("Error removing file %v", nerr)
 			}
 		}
 		return fmt.Errorf("Unable to create command : %s", err.Error())
@@ -661,13 +642,11 @@ func (ssh *SSHConfig) Exec(cmdString string) error {
 		for _, t := range tunnels {
 			nerr := t.Close()
 			if nerr != nil {
-				log.Warnf("Error closing ssh tunnel: %v", nerr)
 			}
 		}
 		if keyFile != nil {
 			nerr := utils.LazyRemove(keyFile.Name())
 			if nerr != nil {
-				log.Warnf("Error removing file %v", nerr)
 			}
 		}
 		return fmt.Errorf("Unable to create command : %s", err.Error())
@@ -692,7 +671,6 @@ func (ssh *SSHConfig) Enter() error {
 		for _, t := range tunnels {
 			nerr := t.Close()
 			if nerr != nil {
-				log.Warnf("Error closing ssh tunnel: %v", nerr)
 			}
 		}
 		return fmt.Errorf("Unable to create command : %s", err.Error())
@@ -703,13 +681,11 @@ func (ssh *SSHConfig) Enter() error {
 		for _, t := range tunnels {
 			nerr := t.Close()
 			if nerr != nil {
-				log.Warnf("Error closing ssh tunnel: %v", nerr)
 			}
 		}
 		if keyFile != nil {
 			nerr := utils.LazyRemove(keyFile.Name())
 			if nerr != nil {
-				log.Warnf("Error removing file %v", nerr)
 			}
 		}
 		return fmt.Errorf("Unable to create command : %s", err.Error())
@@ -720,13 +696,11 @@ func (ssh *SSHConfig) Enter() error {
 		for _, t := range tunnels {
 			nerr := t.Close()
 			if nerr != nil {
-				log.Warnf("Error closing ssh tunnel: %v", nerr)
 			}
 		}
 		if keyFile != nil {
 			nerr := utils.LazyRemove(keyFile.Name())
 			if nerr != nil {
-				log.Warnf("Error removing file %v", nerr)
 			}
 		}
 		return fmt.Errorf("Unable to create command : %s", err.Error())
@@ -739,7 +713,6 @@ func (ssh *SSHConfig) Enter() error {
 	err = proc.Run()
 	nerr := utils.LazyRemove(keyFile.Name())
 	if nerr != nil {
-		log.Warnf("Error removing file %v", nerr)
 	}
 	return err
 }
