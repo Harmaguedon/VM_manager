@@ -365,7 +365,7 @@ func getSizingV1FromDomain(domain *libvirt.Domain, libvirtService *libvirt.Conne
 		diskSize += int(volume.Capacity.Value / 1024 / 1024 / 1024)
 	}
 
-	hostSizing.AllocatedSize.RAMSize = float32(info.MaxMem)
+	hostSizing.AllocatedSize.RAMSize = float32(info.MaxMem) / 1024 / 1024
 	hostSizing.AllocatedSize.Cores = int(info.NrVirtCpu)
 	hostSizing.AllocatedSize.DiskSize = diskSize
 	// TODO GPU not implemented

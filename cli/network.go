@@ -217,9 +217,14 @@ var networkList = cli.Command{
 			return fmt.Errorf("Failed to get a new client : %s", err.Error())
 		}
 
-		networks, err := client.ListNetworks()
+		var networks []*model.Network
+		mv := metadata.NewNetwork(client)
+		err = mv.Browse(func(network *model.Network) error {
+			networks = append(networks, network)
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("Failed to list networks : %s", err.Error())
+			return fmt.Errorf("Failed to list volumes: %s", err.Error())
 		}
 
 		for _, network := range networks {
@@ -245,10 +250,11 @@ var networkInspect = cli.Command{
 			return fmt.Errorf("Failed to get a new client : %s", err.Error())
 		}
 
-		network, err := client.GetNetwork(c.Args().First())
-		if err != nil {
-			return fmt.Errorf("Failed to list networks : %s", err.Error())
+		mNetwork, err := metadata.LoadNetwork(client, c.Args().First())
+		if err != nil || mNetwork == nil {
+			return fmt.Errorf("Network '%s' not found in metadatas", c.Args().First())
 		}
+		network := mNetwork.Get()
 
 		displayNetwork(network)
 
@@ -257,5 +263,8 @@ var networkInspect = cli.Command{
 }
 
 func displayNetwork(network *model.Network) {
-	fmt.Println(network)
+	fmt.Println("\nHost : ", network.Name)
+	fmt.Println("	ID	: ", network.ID)
+	fmt.Println("	CIDR 	: ", network.CIDR)
+	fmt.Println("	GatewayID: ", network.GatewayID)
 }

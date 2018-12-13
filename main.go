@@ -56,27 +56,20 @@ func main() {
 	app.Commands = append(app.Commands, cliL.NetworkCmd)
 	sort.Sort(cli.CommandsByName(cliL.NetworkCmd.Subcommands))
 
-	// app.Commands = append(app.Commands, cmd.TenantCmd)
-	// sort.Sort(cli.CommandsByName(cmd.TenantCmd.Subcommands))
-
 	app.Commands = append(app.Commands, cliL.VolumeCmd)
 	sort.Sort(cli.CommandsByName(cliL.VolumeCmd.Subcommands))
 
 	app.Commands = append(app.Commands, cliL.SSHCmd)
 	sort.Sort(cli.CommandsByName(cliL.SSHCmd.Subcommands))
 
-	// app.Commands = append(app.Commands, cmd.BucketCmd)
-	// sort.Sort(cli.CommandsByName(cmd.BucketCmd.Subcommands))
+	app.Commands = append(app.Commands, cliL.ImageCmd)
+	sort.Sort(cli.CommandsByName(cliL.ImageCmd.Subcommands))
 
-	// app.Commands = append(app.Commands, cmd.ShareCmd)
-	// sort.Sort(cli.CommandsByName(cmd.ShareCmd.Subcommands))
+	app.Commands = append(app.Commands, cliL.TemplateCmd)
+	sort.Sort(cli.CommandsByName(cliL.TemplateCmd.Subcommands))
 
-	//app.Commands = append(app.Commands, cliL.ImageCmd)
-	//sort.Sort(cli.CommandsByName(cliL.ImageCmd.Subcommands))
-
-	// useless
-	// app.Commands = append(app.Commands, cliL.TemplateCmd)
-	// sort.Sort(cli.CommandsByName(cliL.TemplateCmd.Subcommands))
+	// app.Commands = append(app.Commands, cmd.TenantCmd)
+	// sort.Sort(cli.CommandsByName(cmd.TenantCmd.Subcommands))
 
 	sort.Sort(cli.CommandsByName(app.Commands))
 	err := app.Run(os.Args)

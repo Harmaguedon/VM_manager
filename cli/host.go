@@ -21,7 +21,9 @@ import (
 
 	"github.com/CS-SI/LocalDriver/metadata"
 	"github.com/CS-SI/LocalDriver/model"
+	"github.com/CS-SI/LocalDriver/model/enums/HostProperty"
 	"github.com/CS-SI/LocalDriver/model/enums/IPVersion"
+	propsv1 "github.com/CS-SI/LocalDriver/model/properties/v1"
 
 	"github.com/urfave/cli"
 )
@@ -138,20 +140,28 @@ var hostCreate = cli.Command{
 				if err != nil {
 					return fmt.Errorf("Failed to crete default network : %s", err.Error())
 				}
+				err = metadata.SaveNetwork(client, net)
+				if err != nil {
+					return fmt.Errorf("Failed to save gateway metadata into object storage : %s", err.Error())
+				}
 			}
 			networkName = net.Name
 		}
+
 		mNetwork, err := metadata.LoadNetwork(client, networkName)
 		if err != nil || mNetwork == nil {
 			return fmt.Errorf("Failed to load network '%s' metadatas", networkName)
 		}
 		network := mNetwork.Get()
 
-		mGw, err := metadata.LoadHost(client, network.GatewayID)
-		if err != nil || mGw == nil {
-			return fmt.Errorf("Failed to load host '%s'  gateway metadatas", networkName)
+		var gw *model.Host
+		if c.String("network") != "" {
+			mGw, err := metadata.LoadHost(client, network.GatewayID)
+			if err != nil || mGw == nil {
+				return fmt.Errorf("Failed to load host '%s' gateway metadatas", networkName)
+			}
+			gw = mGw.Get()
 		}
-		gw := mGw.Get()
 
 		hostRequest := model.HostRequest{
 			ResourceName:   c.Args().First(),
@@ -173,6 +183,8 @@ var hostCreate = cli.Command{
 		if err != nil {
 			return fmt.Errorf("Failed to save host metadata into object storage : %s", err.Error())
 		}
+
+		displayHost(host)
 
 		return nil
 	},
@@ -232,9 +244,14 @@ var hostList = cli.Command{
 			return fmt.Errorf("Failed to get a new client : %s", err.Error())
 		}
 
-		hosts, err := client.ListHosts()
+		var hosts []*model.Host
+		mv := metadata.NewHost(client)
+		err = mv.Browse(func(host *model.Host) error {
+			hosts = append(hosts, host)
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("Failed to list hosts : %s", err.Error())
+			return fmt.Errorf("Failed to list volumes: %s", err.Error())
 		}
 
 		for _, host := range hosts {
@@ -384,5 +401,32 @@ var hostSsh = cli.Command{
 }
 
 func displayHost(host *model.Host) {
-	fmt.Println(host)
+	hostNetworkV1 := propsv1.NewHostNetwork()
+	hostSizingV1 := propsv1.NewHostSizing()
+	hostVolumesV1 := propsv1.NewHostVolumes()
+	hostMountsV1 := propsv1.NewHostMounts()
+
+	host.Properties.Get(HostProperty.NetworkV1, hostNetworkV1)
+	host.Properties.Get(HostProperty.SizingV1, hostSizingV1)
+	host.Properties.Get(HostProperty.VolumesV1, hostVolumesV1)
+	host.Properties.Get(HostProperty.MountsV1, hostMountsV1)
+
+	fmt.Println("\nHost : ", host.Name)
+	fmt.Println("	ID	: ", host.ID)
+	fmt.Println("	State 	: ", host.LastState)
+	fmt.Println("	Network :")
+	fmt.Println("		Is Gateway 	: ", hostNetworkV1.IsGateway)
+	fmt.Println("		Public IP	: ", hostNetworkV1.PublicIPv4)
+	fmt.Println("		Private IP	: ", hostNetworkV1.IPv4Addresses[hostNetworkV1.DefaultNetworkID])
+	fmt.Println("		Network		: ", hostNetworkV1.NetworksByID[hostNetworkV1.DefaultNetworkID])
+	fmt.Println("		Gateway ID	: ", hostNetworkV1.DefaultGatewayID)
+	fmt.Println("	Sizing :")
+	fmt.Println("		Cores	:", hostSizingV1.AllocatedSize.Cores)
+	fmt.Println("		Ram 	:", hostSizingV1.AllocatedSize.RAMSize)
+	fmt.Println("		Disk	:", hostSizingV1.AllocatedSize.DiskSize)
+	fmt.Println("	Volumes :")
+	for name, id := range hostVolumesV1.VolumesByName {
+		fmt.Println("		Name :", name)
+		fmt.Println("			Mount point :", hostMountsV1.LocalMountsByDevice[hostVolumesV1.DevicesByID[id]])
+	}
 }

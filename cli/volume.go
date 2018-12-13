@@ -141,13 +141,18 @@ var volumeList = cli.Command{
 			return fmt.Errorf("Failed to get a new client : %s", err.Error())
 		}
 
-		volumes, err := client.ListVolumes()
+		var volumes []*model.Volume
+		mv := metadata.NewVolume(client)
+		err = mv.Browse(func(volume *model.Volume) error {
+			volumes = append(volumes, volume)
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("Failed to list volumes %s", err.Error())
+			return fmt.Errorf("Failed to list volumes: %s", err.Error())
 		}
 
 		for _, volume := range volumes {
-			displayVolume(&volume)
+			displayVolume(volume)
 		}
 
 		return nil
@@ -169,10 +174,11 @@ var volumeInspect = cli.Command{
 			return fmt.Errorf("Failed to get a new client : %s", err.Error())
 		}
 
-		volume, err := client.GetVolume(c.Args().First())
+		mVolume, err := metadata.LoadVolume(client, c.Args().First())
 		if err != nil {
-			return fmt.Errorf("Failed to get volume %s", err.Error())
+			return fmt.Errorf("Failed to load volume '%s' from metadatas : %s", c.Args().First(), err.Error())
 		}
+		volume := mVolume.Get()
 
 		displayVolume(volume)
 
@@ -260,10 +266,9 @@ var volumeAttach = cli.Command{
 
 		diff := difference(oldDiskSet, newDiskSet)
 		if len(diff) != 1 {
-			return fmt.Errorf("Failed to create an attachment between volume '%s' and host '%s' : %s", c.Args().Get(0), c.Args().Get(1), err.Error())
+			return fmt.Errorf("Failed to create an attachment between volume '%s' and host '%s'", c.Args().Get(0), c.Args().Get(1))
 		}
-		newDisk := diff[0]
-		diskName := "/dev/" + newDisk
+		diskName := "/dev/" + diff[0]
 
 		server, err := nfs.NewServer(sshConfig)
 		if err != nil {
@@ -322,7 +327,7 @@ var volumeDetach = cli.Command{
 	Usage:     "Detach a volume from an host",
 	ArgsUsage: "<Volume_name|Volume_ID> <Host_name|Host_ID>",
 	Action: func(c *cli.Context) error {
-		//TODO when detaching a volume the name of the other volumes evolves (detach all and re attach all execpt the chosen one?)
+		//TODO when detaching a volume the name of the other volumes evolves (use uuid not names!!)
 		if c.NArg() != 2 {
 			_ = cli.ShowSubcommandHelp(c)
 			return fmt.Errorf("Missing mandatory argument <Volume_name> and/or <Host_name>")
@@ -426,7 +431,19 @@ var volumeDetach = cli.Command{
 }
 
 func displayVolume(volume *model.Volume) {
-	fmt.Println(volume)
+	volumeAttachedV1 := propsv1.NewVolumeAttachments()
+	volume.Properties.Get(VolumeProperty.AttachedV1, volumeAttachedV1)
+
+	fmt.Println("\nVolume : ", volume.Name)
+	fmt.Println("	ID	: ", volume.ID)
+	fmt.Println("	Size 	: ", volume.Size)
+	fmt.Println("	Speed 	: ", volume.Speed)
+	fmt.Println("	State 	: ", volume.State)
+	fmt.Println("	Sharable: ", volumeAttachedV1.Shareable)
+
+	for _, hostName := range volumeAttachedV1.Hosts {
+		fmt.Println("		Attached to host ", hostName)
+	}
 }
 
 func listAttachedDevices(sshConfig *system.SSHConfig) ([]string, error) {
